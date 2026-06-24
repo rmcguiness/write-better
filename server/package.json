@@ -1,0 +1,26 @@
+{
+  "name": "write-better-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Managed backend for Write Better: auth, AI proxy with usage metering, and Stripe billing.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
+    "@hono/node-server": "^1.13.7",
+    "better-sqlite3": "^11.7.0",
+    "hono": "^4.6.14",
+    "openai": "^6.44.0",
+    "stripe": "^17.5.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

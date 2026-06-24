@@ -1,56 +1,74 @@
-# Welcome to your Expo app 👋
+# Write Better
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A cross-platform app (iOS, Android, and web from one codebase) that helps people become better writers through deliberate practice.
 
-## Get started
+Built with **Expo (React Native) + Expo Router + TypeScript**.
 
-1. Install dependencies
+## What it does
 
-   ```bash
-   npm install
-   ```
+**1. The writing experience (core)**
+- Auto-generated, genre-aware prompts (works fully offline) from a large pool of composable fragments — plus an optional **✨ AI prompt** that tailors a fresh prompt to your genre and word target
+- 13 genres including **Journalism** (investigative) and **Personal** (reflective journaling). The Journalism genre adds a **📰 Headline** button that pulls a current news headline and frames it as an investigative assignment
+- Compact **dropdown filters** (genre · length · timer) on a single line
+- Distraction-free editor with a live word count, progress bar, and countdown timer
+- Finished pieces are saved locally (AsyncStorage → localStorage on web)
 
-2. Start the app
+**2. AI feedback (optional)**
+- Structured grading across craft, structure, originality, and prompt response, with quoted line notes
+- A back-and-forth "peer review" conversation with an AI writing partner
+- Two ways to power it, chosen in **Settings**:
+  - **Bring your own key (BYOK)** — paste a key from **Anthropic (Claude)**, **OpenAI (ChatGPT)**, or **xAI (Grok)**; the app calls the provider directly.
+  - **Use my account (managed)** — sign in to the [backend](server/), which holds the keys, meters usage, enforces a monthly quota, and bills via Stripe.
+- On managed plans the app shows **remaining AI uses this month** and prompts you to upgrade when you hit the limit.
+- Either way the app is fully usable without AI configured (offline prompts, your own writing).
 
-   ```bash
-   npx expo start
-   ```
+**3. Learn**
+- A small library of practical craft notes (show-don't-tell, strong verbs, revision passes, …)
+- An **investigative journalism** track: Investigative Journalism 101, Sources & Verification, and Public Records & FOIA
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run it
 
 ```bash
-npm run reset-project
+npm install
+npm run web      # browser
+npm run ios      # iOS simulator (needs Xcode)
+npm run android  # Android emulator
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Project layout
 
-### Other setup steps
+```
+src/
+  app/                     # Expo Router routes (file-based)
+    (tabs)/                # Write · Library · Learn
+    session.tsx            # full-screen timed writing session
+    piece/[id].tsx         # saved piece + AI grade + peer review
+    learn/[id].tsx         # lesson detail
+    settings.tsx           # API key
+  lib/                     # data layer (no UI)
+    genres.ts, prompts.ts  # prompt generator
+    storage.ts             # local persistence
+    ai.ts                  # pluggable Claude API service
+    learn.ts               # seeded lessons
+  lib/
+    providers.ts           # multi-provider abstraction (Anthropic/OpenAI/xAI) for BYOK
+    api.ts                 # client for the managed backend
+    ai.ts                  # routes grade/review to BYOK or managed
+  components/ui/           # Button, Card, Chip
+  constants/theme.ts       # colors, spacing, fonts (light + dark)
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+server/                    # managed backend (Hono + SQLite + Stripe) — see server/README.md
+```
 
-## Learn more
+## The two AI modes
 
-To learn more about developing your project with Expo, look at the following resources:
+- **BYOK:** keys live only on-device and go straight to the chosen provider.
+  Great for power users; no backend required.
+- **Managed:** the [`server/`](server/) backend holds your provider keys, so end
+  users never need their own. It authenticates users, meters usage, enforces
+  per-plan monthly quotas, and bills via Stripe. Run it with `cd server && npm
+  install && npm run dev`, then point the app's **Settings → Use my account** at
+  it.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`src/lib/ai.ts` hides which mode is active, so screens never care where feedback
+comes from.
