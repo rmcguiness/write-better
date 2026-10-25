@@ -98,3 +98,24 @@ export function recordUsage(
     'INSERT INTO usage_events (id, user_id, kind, tokens_in, tokens_out, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(randomUUID(), userId, kind, tokensIn, tokensOut, Date.now());
 }
+
+/**
+ * Atomically check the monthly quota and record a usage event (limit < 0 = unlimited).
+ * Returns the event id, or null when the user is over quota. Reserving before the
+ * provider call stops parallel requests from overshooting the quota.
+ */
+export const reserveUsage = db.transaction(
+  (userId: string, kind: 'grade' | 'review' | 'prompt', limit: number): string | null => {
+    if (limit >= 0 && monthlyUsageCount(userId) >= limit) return null;
+    const id = randomUUID();
+    db.prepare(
+      'INSERT INTO usage_events (id, user_id, kind, tokens_in, tokens_out, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(id, userId, kind, 0, 0, Date.now());
+    return id;
+  },
+);
+
+/** Give a reserved usage event back (e.g. the provider call failed). */
+export function releaseUsage(eventId: string): void {
+  db.prepare('DELETE FROM usage_events WHERE id = ?').run(eventId);
+}

@@ -28,14 +28,35 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Validate the configured backend URL. Credentials and writing are sent to it, so
+ * plain HTTP is only allowed in development builds or for this device (localhost).
+ */
+export function checkBackendUrl(backendUrl: string): string {
+  let url: URL;
+  try {
+    url = new URL(backendUrl);
+  } catch {
+    throw new ApiError(0, 'The backend URL is not valid. Check it in Settings.');
+  }
+  if (url.username || url.password) throw new ApiError(0, 'The backend URL must not contain a username or password.');
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  const httpAllowed = (typeof __DEV__ !== 'undefined' && __DEV__) || local;
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && httpAllowed)) {
+    throw new ApiError(0, 'Use an https:// backend URL.');
+  }
+  return backendUrl.replace(/\/$/, '');
+}
+
 async function request<T>(
   backendUrl: string,
   path: string,
   opts: { method?: string; token?: string; body?: unknown } = {},
 ): Promise<T> {
+  const base = checkBackendUrl(backendUrl);
   let res: Response;
   try {
-    res = await fetch(`${backendUrl.replace(/\/$/, '')}${path}`, {
+    res = await fetch(`${base}${path}`, {
       method: opts.method ?? 'GET',
       headers: {
         'content-type': 'application/json',

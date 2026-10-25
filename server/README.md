@@ -23,7 +23,10 @@ Point the app at it: in **Settings → Use my account**, set the server URL to
 
 | Var | What it's for |
 |---|---|
-| `JWT_SECRET` | Signs login tokens. Use a long random string in prod. |
+| `JWT_SECRET` | Signs login tokens. At least 32 random characters; required when `NODE_ENV=production`. |
+| `CORS_ORIGINS` | Comma-separated browser origins allowed to call the API (production default: `APP_URL`'s origin). |
+| `TRUST_PROXY` | `1` only behind your own reverse proxy, so rate limits use `X-Forwarded-For`. |
+| `AUTH_RATE_LIMIT_PER_MINUTE` / `AI_RATE_LIMIT_PER_MINUTE` | In-memory per-IP (auth) and per-user (AI) limits. |
 | `AI_PROVIDER` / `AI_MODEL` | Which model the service uses for everyone (`anthropic`/`openai`/`xai`). Default `claude-haiku-4-5` keeps cost low. |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` | Your provider key — only the one matching `AI_PROVIDER` is required. |
 | `FREE_MONTHLY_LIMIT` / `PRO_MONTHLY_LIMIT` | Included feedbacks per month per plan (`-1` = unlimited). |
@@ -56,6 +59,10 @@ surfaces that as an upgrade prompt.
    user to `pro` → quota becomes unlimited.
 
 ## Production notes
+
+- Run with `NODE_ENV=production`, HTTPS only, and a strong `JWT_SECRET`.
+- Quota is reserved atomically before each AI call and refunded if the provider call fails.
+- Add an edge rate limit, email verification and a provider spending cap before open sign-ups.
 
 - Swap `better-sqlite3` for Postgres (the `db.ts` interface is small).
 - Put it behind HTTPS; set a real `JWT_SECRET` and `APP_URL`.

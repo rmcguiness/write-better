@@ -45,14 +45,13 @@ export async function createPortalUrl(user: UserRow): Promise<string> {
 /** Verify and apply a Stripe webhook event. Throws on bad signature. */
 export async function handleWebhook(rawBody: string, signature: string): Promise<void> {
   if (!stripe) throw new Error('Billing is not configured.');
+  if (!env.stripeWebhookSecret) throw new Error('STRIPE_WEBHOOK_SECRET is not set.');
   const event = stripe.webhooks.constructEvent(rawBody, signature, env.stripeWebhookSecret);
 
   switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
-      applyPlanByCustomer(session.customer, 'pro');
-      break;
-    }
+    // checkout.session.completed is deliberately ignored: a completed checkout does not
+    // guarantee payment (e.g. delayed payment methods). Entitlement follows the
+    // subscription status events below.
     case 'customer.subscription.updated':
     case 'customer.subscription.created': {
       const sub = event.data.object as Stripe.Subscription;
