@@ -10,11 +10,15 @@ import { env } from './env.js';
 export function rateLimit(opts: {
   perMinute: number;
   key: (c: Context) => string | undefined;
+  /** Don't limit requests whose key can't be determined (instead of pooling them in one bucket). */
+  skipUnknownKey?: boolean;
 }): MiddlewareHandler {
   const hits = new Map<string, { count: number; resetAt: number }>();
   return async (c, next) => {
     if (opts.perMinute <= 0) return next();
-    const key = opts.key(c) ?? 'unknown';
+    const found = opts.key(c);
+    if (found === undefined && opts.skipUnknownKey) return next();
+    const key = found ?? 'unknown';
     const now = Date.now();
     let entry = hits.get(key);
     if (!entry || entry.resetAt <= now) {
@@ -26,8 +30,12 @@ export function rateLimit(opts: {
       for (const [k, v] of hits) if (v.resetAt <= now) hits.delete(k);
     }
     if (entry.count > opts.perMinute) {
-      c.header('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
-      return c.json({ error: 'Too many requests. Please wait a minute and try again.', code: 'rate_limited' }, 429);
+      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+      c.header('Retry-After', String(retryAfter));
+      return c.json(
+        { error: 'Too many requests. Please wait a minute and try again.', code: 'rate_limited', retryAfter },
+        429,
+      );
     }
     await next();
   };

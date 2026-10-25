@@ -26,6 +26,7 @@ import { GENRES, getGenre } from "@/lib/genres";
 import { generateNewsPrompt } from "@/lib/news";
 import { generatePrompt, generateSurprisePrompt } from "@/lib/prompts";
 import { getSettings, saveSettings, type AppSettings } from "@/lib/storage";
+import { limitAlert, usageSummary } from "@/lib/usage";
 import type { GenreId, Prompt } from "@/lib/types";
 
 const GENRE_OPTIONS: DropdownOption<GenreId>[] = GENRES.map((g) => ({
@@ -156,15 +157,21 @@ export default function WriteScreen() {
 
   function handleAiError(e: unknown) {
     const msg = e instanceof Error ? e.message : "Could not generate a prompt.";
-    const quota = e instanceof ApiError && e.code === "quota_exceeded";
+    const limit = e instanceof ApiError ? limitAlert(e) : null;
     if (Platform.OS === "web") {
-      alert(msg);
-      if (quota) router.push("/settings");
-    } else if (quota) {
-      Alert.alert("Monthly limit reached", msg, [
-        { text: "Not now", style: "cancel" },
-        { text: "Upgrade", onPress: () => router.push("/settings") },
-      ]);
+      alert(limit ? `${limit.title}\n\n${limit.message}` : msg);
+      if (limit?.canUpgrade) router.push("/settings");
+    } else if (limit) {
+      Alert.alert(
+        limit.title,
+        limit.message,
+        limit.canUpgrade
+          ? [
+              { text: "Not now", style: "cancel" },
+              { text: "Upgrade", onPress: () => router.push("/settings") },
+            ]
+          : [{ text: "OK" }],
+      );
     } else {
       Alert.alert("Heads up", msg);
     }
@@ -368,19 +375,11 @@ export default function WriteScreen() {
 
 function UsagePill({ account }: { account: Account }) {
   const theme = useTheme();
-  const unlimited = account.usage.limit < 0;
-  const remaining = unlimited
-    ? Infinity
-    : Math.max(0, account.usage.limit - account.usage.used);
-  const out = !unlimited && remaining === 0;
-  const label = unlimited
-    ? "Pro · unlimited AI this month"
-    : out
-      ? "No AI uses left this month"
-      : `${remaining} of ${account.usage.limit} AI uses left this month`;
+  const { capped, label, action } = usageSummary(account);
+  const out = capped !== null;
 
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Manage AI usage"
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label}. ${action} AI usage`}
       onPress={() => router.push("/settings")}
       style={[
         styles.usagePill,
@@ -391,7 +390,7 @@ function UsagePill({ account }: { account: Account }) {
       ]}
     >
       <Ionicons
-        name={unlimited ? "infinite" : out ? "alert-circle" : "flash-outline"}
+        name={out ? "alert-circle" : "flash-outline"}
         size={16}
         color={out ? theme.danger : theme.tint}
       />
@@ -401,14 +400,12 @@ function UsagePill({ account }: { account: Account }) {
       >
         {label}
       </ThemedText>
-      {!unlimited && (
-        <ThemedText
-          type="small"
-          style={{ color: theme.tint, fontWeight: "700" }}
-        >
-          {out ? "Upgrade" : "Manage"}
-        </ThemedText>
-      )}
+      <ThemedText
+        type="small"
+        style={{ color: theme.tint, fontWeight: "700" }}
+      >
+        {action}
+      </ThemedText>
     </Pressable>
   );
 }

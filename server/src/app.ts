@@ -20,7 +20,7 @@ import {
   type UserRow,
 } from './db.js';
 import { billingEnabled, env } from './env.js';
-import { accountFor, planLimit } from './plans.js';
+import { accountFor, capReached, planLimits } from './plans.js';
 import { generatePrompt, grade, review } from './providers.js';
 import { clientIp, rateLimit } from './ratelimit.js';
 import { LIMITS, parseHistory, parsePiece, parsePromptRequest } from './validate.js';
@@ -89,15 +89,20 @@ app.use('/prompts/*', requireAuth);
 app.use('/billing/checkout', requireAuth);
 app.use('/billing/portal', requireAuth);
 
+// Burst limits on the AI routes: per account, and per client IP across accounts.
+// These sit in front of the monthly/daily caps, which are what bound cost.
+const aiIpRateLimit = rateLimit({ perMinute: env.aiIpRateLimitPerMinute, key: clientIp, skipUnknownKey: true });
 const aiRateLimit = rateLimit({ perMinute: env.aiRateLimitPerMinute, key: (c) => c.get('user')?.id });
-app.use('/feedback/*', aiRateLimit);
-app.use('/prompts/*', aiRateLimit);
+for (const path of ['/feedback/*', '/prompts/*']) {
+  app.use(path, aiIpRateLimit);
+  app.use(path, aiRateLimit);
+}
 
 app.get('/me', (c) => c.json({ account: accountFor(c.get('user')) }));
 
-/** Reserve one unit of quota before calling the provider; null = over quota. */
-function reserve(user: UserRow, kind: 'grade' | 'review' | 'prompt'): string | null {
-  return reserveUsage(user.id, kind, planLimit(user.plan));
+/** Reserve one AI use before calling the provider. */
+function reserve(user: UserRow, kind: 'grade' | 'review' | 'prompt') {
+  return reserveUsage(user.id, kind, planLimits(user.plan));
 }
 
 function providerError(c: Parameters<MiddlewareHandler>[0], e: unknown, message: string) {
@@ -113,16 +118,12 @@ app.post('/feedback/grade', async (c) => {
   const piece = parsePiece(body?.piece);
   if (!piece) return c.json({ error: 'Missing or invalid piece.' }, 400);
   const reservation = reserve(user, 'grade');
-  if (!reservation)
-    return c.json(
-      { error: 'You’ve used all your feedback for this month. Upgrade to keep going.', code: 'quota_exceeded' },
-      402,
-    );
+  if (!reservation.ok) return c.json(capReached(user, reservation.scope), 402);
   try {
     const feedback = await grade(piece);
     return c.json({ feedback });
   } catch (e) {
-    releaseUsage(reservation);
+    releaseUsage(reservation.id);
     return providerError(c, e, 'Grading failed. Please try again.');
   }
 });
@@ -134,16 +135,12 @@ app.post('/feedback/review', async (c) => {
   const history = parseHistory(body?.history);
   if (!piece || !history) return c.json({ error: 'Missing or invalid piece or history.' }, 400);
   const reservation = reserve(user, 'review');
-  if (!reservation)
-    return c.json(
-      { error: 'You’ve used all your feedback for this month. Upgrade to keep going.', code: 'quota_exceeded' },
-      402,
-    );
+  if (!reservation.ok) return c.json(capReached(user, reservation.scope), 402);
   try {
     const reply = await review(piece, history);
     return c.json({ reply });
   } catch (e) {
-    releaseUsage(reservation);
+    releaseUsage(reservation.id);
     return providerError(c, e, 'Review failed. Please try again.');
   }
 });
@@ -153,16 +150,12 @@ app.post('/prompts/generate', async (c) => {
   const req = parsePromptRequest(await jsonBody(c));
   if (!req) return c.json({ error: 'Invalid genre or word target.' }, 400);
   const reservation = reserve(user, 'prompt');
-  if (!reservation)
-    return c.json(
-      { error: 'You’ve used all your AI for this month. Upgrade to keep going.', code: 'quota_exceeded' },
-      402,
-    );
+  if (!reservation.ok) return c.json(capReached(user, reservation.scope), 402);
   try {
     const prompt = await generatePrompt(req.genre, req.wordTarget);
     return c.json(prompt);
   } catch (e) {
-    releaseUsage(reservation);
+    releaseUsage(reservation.id);
     return providerError(c, e, 'Prompt generation failed. Please try again.');
   }
 });
