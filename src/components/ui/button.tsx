@@ -1,7 +1,8 @@
-import { ActivityIndicator, Pressable, StyleSheet, type PressableProps } from 'react-native';
+import { Type, Radius, Spacing } from '@/constants/theme';
+import { MotionPressable } from './motion';
+import { ActivityIndicator, StyleSheet, type PressableProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -44,16 +45,17 @@ export function Button({
         : theme.text;
 
   return (
-    <Pressable
+    <MotionPressable
       accessibilityRole="button"
+      accessibilityLabel={title}
       disabled={disabled || loading}
-      style={({ pressed }) => [
+      accessibilityState={{ disabled: !!disabled || loading, busy: loading }}
+      style={(state) => [
         styles.base,
         size === 'lg' && styles.lg,
         { backgroundColor: bg },
-        variant === 'ghost' && { borderWidth: 1, borderColor: theme.border },
-        (pressed || disabled || loading) && { opacity: 0.65 },
-        typeof style === 'function' ? undefined : style,
+        (state.pressed || disabled || loading) && { opacity: 0.65 },
+        typeof style === 'function' ? style(state) : style,
       ]}
       {...rest}>
       {loading ? (
@@ -66,28 +68,29 @@ export function Button({
           </ThemedText>
         </>
       )}
-    </Pressable>
+    </MotionPressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.two,
     paddingVertical: Spacing.three - 2,
     paddingHorizontal: Spacing.four,
-    borderRadius: 14,
+    borderRadius: Radius.medium,
   },
   lg: {
     paddingVertical: Spacing.three + 2,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: Type.body.fontSize,
+    fontWeight: '600',
   },
   labelLg: {
-    fontSize: 18,
+    fontSize: Type.body.fontSize,
   },
 });

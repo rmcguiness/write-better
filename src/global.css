@@ -7,3 +7,12 @@
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
 }
+
+:root { color-scheme: light; background: #F8F6F1; --focus-color: #326D60; }
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: dark; background: #181C1A; --focus-color: #A0CABB; }
+}
+:focus-visible { outline: 2px solid var(--focus-color) !important; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }
+}

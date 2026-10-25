@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Type, Radius, Spacing } from '@/constants/theme';
+import { MotionPressable } from './motion';
+import { StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ChipProps = {
@@ -18,9 +19,10 @@ export function Chip({ label, emoji, selected, accent, onPress }: ChipProps) {
   const activeColor = accent ?? theme.tint;
 
   return (
-    <Pressable
+    <MotionPressable
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected }}
       style={({ pressed }) => [
         styles.chip,
@@ -31,24 +33,25 @@ export function Chip({ label, emoji, selected, accent, onPress }: ChipProps) {
         pressed && { opacity: 0.7 },
       ]}>
       <ThemedText
-        style={[styles.label, { color: selected ? '#fff' : theme.text }]}
+        style={[styles.label, { color: selected ? theme.tintText : theme.text }]}
         numberOfLines={1}>
         {emoji ? `${emoji}  ` : ''}
         {label}
       </ThemedText>
-    </Pressable>
+    </MotionPressable>
   );
 }
 
 const styles = StyleSheet.create({
   chip: {
+    minHeight: 44, justifyContent: 'center',
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     borderWidth: 1,
   },
   label: {
-    fontSize: 14,
+    fontSize: Type.caption.fontSize,
     fontWeight: '600',
   },
 });

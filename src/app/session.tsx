@@ -1,3 +1,5 @@
+import { Radius, Fonts, Type, Spacing } from '@/constants/theme';
+import { ProgressFill } from '@/components/ui/motion';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getGenre } from '@/lib/genres';
 import { newId } from '@/lib/id';
@@ -118,7 +119,7 @@ export default function SessionScreen() {
       <SafeAreaView style={styles.fill}>
         {/* Top bar */}
         <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
-          <Pressable onPress={attemptExit} hitSlop={10} accessibilityLabel="Exit">
+          <Pressable onPress={attemptExit} hitSlop={10} accessibilityRole="button" style={{ minWidth: 44, minHeight: 44, justifyContent: 'center' }} accessibilityLabel="Exit">
             <Ionicons name="close" size={26} color={theme.textSecondary} />
           </Pressable>
 
@@ -145,15 +146,7 @@ export default function SessionScreen() {
           </ThemedText>
           {wordTarget > 0 && (
             <View style={[styles.track, { backgroundColor: theme.backgroundElement }]}>
-              <View
-                style={[
-                  styles.trackFill,
-                  {
-                    width: `${progress * 100}%`,
-                    backgroundColor: progress >= 1 ? theme.success : genre.accent,
-                  },
-                ]}
-              />
+              <ProgressFill progress={progress} color={progress >= 1 ? theme.success : theme.tint} />
             </View>
           )}
         </View>
@@ -163,7 +156,7 @@ export default function SessionScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.editorWrap}>
             {/* Collapsible prompt reminder */}
-            <Pressable onPress={() => setPromptOpen((o) => !o)} style={styles.promptBar}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Toggle prompt" accessibilityState={{ expanded: promptOpen }} onPress={() => setPromptOpen((o) => !o)} style={styles.promptBar}>
               <ThemedText
                 type="small"
                 themeColor="textSecondary"
@@ -180,7 +173,7 @@ export default function SessionScreen() {
 
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="Start writing…"
+              accessibilityLabel="Writing editor" placeholder="Start writing…"
               placeholderTextColor={theme.textSecondary}
               multiline
               autoFocus
@@ -270,13 +263,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   clockWrap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
-  clock: { fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  clock: { fontSize: Type.body.fontSize, fontWeight: '700', fontVariant: ['tabular-nums'] },
   meta: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.two,
     gap: Spacing.one,
     width: '100%',
-    maxWidth: MaxContentWidth,
+    maxWidth: 680,
     alignSelf: 'center',
   },
   track: { height: 4, borderRadius: 2, overflow: 'hidden' },
@@ -284,7 +277,7 @@ const styles = StyleSheet.create({
   editorWrap: {
     flex: 1,
     width: '100%',
-    maxWidth: MaxContentWidth,
+    maxWidth: 680,
     alignSelf: 'center',
     paddingHorizontal: Spacing.four,
   },
@@ -297,10 +290,9 @@ const styles = StyleSheet.create({
   promptReminder: { flex: 1, fontStyle: 'italic' },
   input: {
     flex: 1,
-    fontSize: 19,
-    lineHeight: 30,
+    ...Type.writing,
+    fontFamily: Fonts.serif,
     paddingBottom: Spacing.six,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
   },
   overlay: {
     position: 'absolute',
@@ -316,12 +308,12 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxWidth: 420,
-    borderRadius: 20,
+    borderRadius: Radius.large,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  overlayTitle: { fontSize: 22, fontWeight: '800', textAlign: 'center' },
+  overlayTitle: { fontSize: Type.heading.fontSize, fontWeight: '600', textAlign: 'center' },
   center: { textAlign: 'center' },
   overlayBtn: { alignSelf: 'stretch' },
 });

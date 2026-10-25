@@ -1,3 +1,4 @@
+import { Type, Radius, MaxContentWidth, Spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
@@ -8,7 +9,6 @@ import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -206,7 +206,7 @@ export default function SettingsScreen() {
 
             <View style={styles.keyRow}>
               <ThemedText type="smallBold">{providerInfo.label} API key</ThemedText>
-              <Pressable onPress={() => Linking.openURL(providerInfo.getKeyUrl)}>
+              <Pressable accessibilityRole="link" accessibilityLabel="Get an API key" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => Linking.openURL(providerInfo.getKeyUrl)}>
                 <ThemedText type="small" style={{ color: theme.tint }}>
                   Get a key ↗
                 </ThemedText>
@@ -224,20 +224,17 @@ export default function SettingsScreen() {
                 autoCorrect={false}
                 secureTextEntry={!reveal}
               />
-              <Ionicons
-                name={reveal ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color={theme.textSecondary}
-                onPress={() => setReveal((r) => !r)}
-              />
+              <Pressable accessibilityRole="button" accessibilityLabel={reveal ? 'Hide API key' : 'Show API key'} accessibilityState={{ expanded: reveal }} onPress={() => setReveal(r => !r)} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={reveal ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.textSecondary} />
+              </Pressable>
             </View>
 
             {!!error && <ThemedText>{error}</ThemedText>}
             <Button title={savedFlash ? 'Saved ✓' : 'Save'} onPress={saveByok} />
             <ThemedText type="small" themeColor="textSecondary">
               {Platform.OS === 'web'
-                ? `Your key is sent only to ${providerInfo.label} from this browser. It is saved in this browser’s unencrypted local storage.`
-                : `Your key is encrypted on this device and sent only to ${providerInfo.label}.`}
+                ? `Your key is sent only to ${providerInfo.label} from this browser. It is saved in this browser’s unencrypted local storage (localStorage).`
+                : `Your key is stored in your device’s secure storage and sent only to ${providerInfo.label}.`}
             </ThemedText>
           </Card>
         ) : (
@@ -247,7 +244,7 @@ export default function SettingsScreen() {
               <View style={[styles.inputRow, { borderColor: theme.border }]}>
                 <TextInput
                   style={[styles.input, { color: theme.text }]}
-                  placeholder="https://your-backend.example.com"
+                  accessibilityLabel="Server URL" placeholder="https://your-backend.example.com"
                   placeholderTextColor={theme.textSecondary}
                   value={backendUrl}
                   onChangeText={setBackendUrl}
@@ -261,7 +258,7 @@ export default function SettingsScreen() {
                   <View style={[styles.inputRow, { borderColor: theme.border }]}>
                     <TextInput
                       style={[styles.input, { color: theme.text }]}
-                      placeholder="Email"
+                      accessibilityLabel="Email" placeholder="Email"
                       placeholderTextColor={theme.textSecondary}
                       value={email}
                       onChangeText={setEmail}
@@ -273,7 +270,7 @@ export default function SettingsScreen() {
                   <View style={[styles.inputRow, { borderColor: theme.border }]}>
                     <TextInput
                       style={[styles.input, { color: theme.text }]}
-                      placeholder="Password"
+                      accessibilityLabel="Password" placeholder="Password"
                       placeholderTextColor={theme.textSecondary}
                       value={password}
                       onChangeText={setPassword}
@@ -403,7 +400,7 @@ function SegmentButton({
   const theme = useTheme();
   return (
     <Pressable
-      onPress={onPress}
+      accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }} onPress={onPress}
       style={[
         styles.segBtn,
         {
@@ -428,10 +425,10 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
   },
-  cardTitle: { fontSize: 18, fontWeight: '800' },
+  cardTitle: { fontSize: Type.body.fontSize, fontWeight: '600' },
   segment: { flexDirection: 'row', gap: Spacing.two },
-  segBtn: { flex: 1, borderWidth: 1, borderRadius: 14, padding: Spacing.three, gap: 2 },
-  segLabel: { fontSize: 15, fontWeight: '700' },
+  segBtn: { flex: 1, borderWidth: 1, borderRadius: Radius.medium, padding: Spacing.three, gap: 2 },
+  segLabel: { fontSize: Type.body.fontSize, fontWeight: '700' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   mt: { marginTop: Spacing.two },
   keyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: Spacing.two },
@@ -440,18 +437,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.medium,
     paddingHorizontal: Spacing.three,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: Type.body.fontSize,
     paddingVertical: Spacing.three,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
   },
   flex: { flex: 1 },
   acctRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  planPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  planPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.pill },
   usageRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   usageTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
   usageFill: { height: '100%', borderRadius: 3 },

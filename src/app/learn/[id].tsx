@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Fonts, Type, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getLesson } from '@/lib/learn';
 
@@ -119,13 +119,13 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
   },
-  title: { fontSize: 30, fontWeight: '800', lineHeight: 36 },
+  title: { fontSize: Type.title.fontSize, fontWeight: '600', lineHeight: 36 },
   bodyWrap: { marginTop: Spacing.three },
-  heading: { fontSize: 19, fontWeight: '800', marginTop: Spacing.three, marginBottom: Spacing.one },
-  paragraph: { fontSize: 17, lineHeight: 27, marginBottom: Spacing.two },
+  heading: { fontSize: Type.heading.fontSize, fontWeight: '600', marginTop: Spacing.three, marginBottom: Spacing.one },
+  paragraph: { ...Type.writing, fontFamily: Fonts.serif, marginBottom: Spacing.two },
   bullet: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.one },
-  dot: { fontSize: 17, fontWeight: '800', minWidth: 18 },
-  bulletText: { flex: 1, fontSize: 17, lineHeight: 26 },
-  bold: { fontWeight: '800' },
+  dot: { fontSize: Type.body.fontSize, fontWeight: '600', minWidth: 18 },
+  bulletText: { flex: 1, ...Type.writing, fontFamily: Fonts.serif },
+  bold: { fontWeight: '600' },
   italic: { fontStyle: 'italic' },
 });

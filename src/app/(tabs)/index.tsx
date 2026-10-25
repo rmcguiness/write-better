@@ -1,3 +1,5 @@
+import { Radius, Fonts, Type, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MotionView } from '@/components/ui/motion';
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -17,7 +19,6 @@ import { ThemedView } from "@/components/themed-view";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dropdown, type DropdownOption } from "@/components/ui/dropdown";
-import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { generateAIPrompt, resolveAIConfig, type AIConfig } from "@/lib/ai";
 import { ApiError, getAccount, type Account } from "@/lib/api";
@@ -204,7 +205,7 @@ export default function WriteScreen() {
               <ThemedText style={styles.brand}>Write Better</ThemedText>
             </View>
             <Pressable
-              accessibilityLabel="Settings"
+              accessibilityRole="button" style={styles.iconButton} accessibilityLabel="Settings"
               onPress={() => router.push("/settings")}
               hitSlop={10}
             >
@@ -221,12 +222,12 @@ export default function WriteScreen() {
           )}
 
           {/* Prompt card */}
-          <Card style={{ borderColor: activeGenre.accent }}>
+          <Card>
             <View style={styles.promptTop}>
               <View
-                style={[styles.badge, { backgroundColor: activeGenre.accent }]}
+                style={[styles.badge, { backgroundColor: theme.tint }]}
               >
-                <ThemedText style={styles.badgeText}>
+                <ThemedText style={[styles.badgeText, { color: theme.tintText }]}>
                   {activeGenre.emoji} {activeGenre.label}
                 </ThemedText>
               </View>
@@ -234,20 +235,21 @@ export default function WriteScreen() {
                 <Pressable
                   onPress={shuffle}
                   hitSlop={8}
-                  accessibilityLabel="New prompt"
-                  disabled={aiBusy}
+                  accessibilityRole="button" style={styles.iconButton} accessibilityLabel="New prompt"
+                  disabled={aiBusy} accessibilityState={{ disabled: aiBusy }}
                 >
                   <Ionicons
                     name="shuffle"
-                    size={22}
+                    size={18}
                     color={theme.textSecondary}
                   />
+                  <ThemedText type="caption">Shuffle</ThemedText>
                 </Pressable>
                 <Pressable
                   onPress={surprise}
                   hitSlop={8}
-                  accessibilityLabel="Surprise me"
-                  disabled={aiBusy}
+                  accessibilityRole="button" style={styles.iconButton} accessibilityLabel="Surprise me"
+                  disabled={aiBusy} accessibilityState={{ disabled: aiBusy }}
                 >
                   <Ionicons
                     name="dice-outline"
@@ -259,8 +261,8 @@ export default function WriteScreen() {
                   <Pressable
                     onPress={newsPrompt}
                     hitSlop={8}
-                    disabled={newsBusy || aiBusy}
-                    accessibilityLabel="Prompt from a current headline"
+                    disabled={newsBusy || aiBusy} accessibilityState={{ disabled: newsBusy || aiBusy }}
+                    accessibilityRole="button" accessibilityLabel="Prompt from a current headline"
                     style={[styles.newsBtn, { borderColor: theme.border }]}
                   >
                     {newsBusy ? (
@@ -282,26 +284,26 @@ export default function WriteScreen() {
                 <Pressable
                   onPress={aiPrompt}
                   hitSlop={8}
-                  disabled={aiBusy}
-                  accessibilityLabel="Generate prompt with AI"
+                  disabled={aiBusy} accessibilityState={{ disabled: aiBusy }}
+                  accessibilityRole="button" accessibilityLabel="Generate prompt with AI"
                   style={[
                     styles.aiBtn,
-                    { backgroundColor: activeGenre.accent },
+                    { backgroundColor: theme.tint },
                   ]}
                 >
                   {aiBusy ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={theme.tintText} />
                   ) : (
                     <>
-                      <Ionicons name="sparkles" size={14} color="#fff" />
-                      <ThemedText style={styles.aiBtnText}>AI</ThemedText>
+                      <Ionicons name="sparkles" size={14} color={theme.tintText} />
+                      <ThemedText style={[styles.aiBtnText, { color: theme.tintText }]}>AI</ThemedText>
                     </>
                   )}
                 </Pressable>
               </View>
             </View>
 
-            <ThemedText testID="writing-prompt" style={styles.promptText}>{prompt.text}</ThemedText>
+            <MotionView key={prompt.id}><ThemedText testID="writing-prompt" style={styles.promptText}>{prompt.text}</ThemedText></MotionView>
 
             {!!prompt.tip && (
               <View style={[styles.tip, { borderTopColor: theme.border }]}>
@@ -327,7 +329,7 @@ export default function WriteScreen() {
               caption="Genre"
               value={genre}
               options={GENRE_OPTIONS}
-              accent={activeGenre.accent}
+              accent={theme.tint}
               onChange={pickGenre}
             />
             <Dropdown
@@ -344,17 +346,21 @@ export default function WriteScreen() {
             />
           </View>
 
-          {!resolveAIConfig(settings) && <Card>
-            <ThemedText type="small">Add your own API key in Settings to get AI feedback.</ThemedText>
-            <Button title="Open Settings" variant="secondary" onPress={() => router.push('/settings')} />
-          </Card>}
+
+        </ScrollView>
+        <View style={[styles.footer, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+          {!resolveAIConfig(settings) && <View style={styles.keyHint}>
+            <Ionicons name="sparkles-outline" size={16} color={theme.tint} />
+            <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>Make room for feedback.</ThemedText>
+            <Button title="Add API key" variant="ghost" onPress={() => router.push('/settings')} />
+          </View>}
           <Button
             title="Start writing"
             size="lg"
             onPress={start}
             style={styles.startBtn}
           />
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
@@ -374,7 +380,7 @@ function UsagePill({ account }: { account: Account }) {
       : `${remaining} of ${account.usage.limit} AI uses left this month`;
 
   return (
-    <Pressable
+    <Pressable accessibilityRole="button" accessibilityLabel="Manage AI usage"
       onPress={() => router.push("/settings")}
       style={[
         styles.usagePill,
@@ -408,69 +414,75 @@ function UsagePill({ account }: { account: Account }) {
 }
 
 const styles = StyleSheet.create({
+  footer: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.three, paddingTop: Spacing.two, borderTopWidth: StyleSheet.hairlineWidth, width: "100%", maxWidth: MaxContentWidth, alignSelf: "center", gap: Spacing.two },
   fill: { flex: 1 },
   content: {
     padding: Spacing.four,
-    gap: Spacing.four,
+    gap: Spacing.three,
     maxWidth: MaxContentWidth,
     width: "100%",
     alignSelf: "center",
-    paddingBottom: Spacing.six,
+    paddingBottom: Spacing.three,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
-  brand: { fontSize: 30, fontWeight: "800", lineHeight: 36 },
+  brand: { fontSize: Type.title.fontSize, fontWeight: "600", lineHeight: 36 },
   promptTop: {
-    flexDirection: "row",
+    gap: Spacing.two,
+    alignSelf: "stretch",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   badge: {
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
   },
-  badgeText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  badgeText: { color: "#fff", fontSize: Type.caption.fontSize, fontWeight: "700" },
+  iconButton: { gap: Spacing.one, minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  keyHint: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   promptActions: {
     flexDirection: "row",
-    gap: Spacing.three,
+    gap: Spacing.two,
     alignItems: "center",
   },
   newsBtn: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  newsBtnText: { fontSize: 12, fontWeight: "700" },
+  newsBtnText: { fontSize: Type.caption.fontSize, fontWeight: "700" },
   aiBtn: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     minWidth: 48,
     justifyContent: "center",
   },
-  aiBtnText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  aiBtnText: { color: "#fff", fontSize: Type.caption.fontSize, fontWeight: "600" },
   usagePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
   usageText: { flex: 1 },
-  promptText: { fontSize: 21, lineHeight: 30, fontWeight: "500" },
+  promptText: { ...Type.writing, fontFamily: Fonts.serif, fontWeight: "400" },
   tip: {
     flexDirection: "row",
     gap: Spacing.two,
@@ -479,6 +491,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
   },
   tipText: { flex: 1 },
-  filterRow: { flexDirection: "row", gap: Spacing.two, alignItems: "stretch" },
+  filterRow: {
+    flexWrap: "wrap", flexDirection: "row", gap: Spacing.two, alignItems: "stretch" },
   startBtn: { marginTop: Spacing.two },
 });
