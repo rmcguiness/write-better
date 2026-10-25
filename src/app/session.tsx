@@ -293,6 +293,8 @@ const styles = StyleSheet.create({
     ...Type.writing,
     fontFamily: Fonts.serif,
     paddingBottom: Spacing.six,
+    // Keep the browser focus ring off the text on web.
+    ...(Platform.OS === 'web' ? { paddingHorizontal: Spacing.two, paddingTop: Spacing.two, borderRadius: 8 } : null),
   },
   overlay: {
     position: 'absolute',
