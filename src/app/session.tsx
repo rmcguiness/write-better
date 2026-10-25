@@ -58,7 +58,8 @@ export default function SessionScreen() {
   const [timeUp, setTimeUp] = useState(false);
   const [showExit, setShowExit] = useState(false);
   const [promptOpen, setPromptOpen] = useState(true);
-  const startedRef = useRef(Date.now());
+  const [startedAt] = useState(() => Date.now());
+  const startedRef = useRef(startedAt);
 
   const wordCount = countWords(body);
   const remaining = durationSec > 0 ? Math.max(0, durationSec - elapsed) : 0;

@@ -60,6 +60,8 @@ export default function PieceScreen() {
   }, [id, refreshAccount]);
 
   useEffect(() => {
+    // Loading persisted data updates state after the storage promises resolve.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
@@ -84,7 +86,6 @@ export default function PieceScreen() {
     };
     if (Platform.OS === 'web') {
       // RN Alert has no web implementation with buttons.
-      // eslint-disable-next-line no-alert
       if (confirm('Delete this piece permanently?')) doDelete();
     } else {
       Alert.alert('Delete piece?', 'This cannot be undone.', [
@@ -114,6 +115,8 @@ export default function PieceScreen() {
     const cfg = settings && resolveAIConfig(settings);
     if (!piece || !cfg) return;
     const text = draft.trim();
+    // This timestamp is captured in the send event handler.
+    // eslint-disable-next-line react-hooks/purity
     const writerTurn: ReviewTurn = { role: 'writer', text: text || '…', createdAt: Date.now() };
     const history = piece.review ?? [];
     const optimistic = text ? [...history, writerTurn] : history;
@@ -123,6 +126,8 @@ export default function PieceScreen() {
     setPiece({ ...piece, review: optimistic });
     try {
       const reply = await peerReview(piece, optimistic, cfg);
+      // This timestamp is captured after the review request resolves.
+      // eslint-disable-next-line react-hooks/purity
       const reviewerTurn: ReviewTurn = { role: 'reviewer', text: reply, createdAt: Date.now() };
       const toPersist = text ? [writerTurn, reviewerTurn] : [reviewerTurn];
       await appendReview(piece.id, toPersist);
@@ -140,7 +145,6 @@ export default function PieceScreen() {
     const msg = e instanceof Error ? e.message : 'Something went wrong.';
     const quota = e instanceof ApiError && e.code === 'quota_exceeded';
     if (Platform.OS === 'web') {
-      // eslint-disable-next-line no-alert
       alert(msg);
       if (quota) router.push('/settings');
     } else if (quota) {

@@ -187,6 +187,11 @@ export function reviewSystemPrompt(piece: Piece): string {
   ].join('\n');
 }
 
+/** Parse the provider JSON as returned; validation is delegated to its schema. */
+export function parseFeedback(text: string): RawFeedback {
+  return JSON.parse(text) as RawFeedback;
+}
+
 export function finalizeFeedback(raw: RawFeedback, model: string): Feedback {
   return { ...raw, grade: letterGrade(raw.overall), model, createdAt: Date.now() };
 }
@@ -226,7 +231,7 @@ export async function gradeWithProvider(
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map((b) => b.text)
       .join('');
-    return finalizeFeedback(JSON.parse(text) as RawFeedback, model);
+    return finalizeFeedback(parseFeedback(text), model);
   }
 
   // OpenAI + xAI
@@ -243,7 +248,7 @@ export async function gradeWithProvider(
         : { type: 'json_object' },
   });
   const text = completion.choices[0]?.message?.content ?? '{}';
-  return finalizeFeedback(JSON.parse(text) as RawFeedback, model);
+  return finalizeFeedback(parseFeedback(text), model);
 }
 
 export async function reviewWithProvider(

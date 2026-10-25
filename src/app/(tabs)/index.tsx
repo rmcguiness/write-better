@@ -142,7 +142,6 @@ export default function WriteScreen() {
         "Couldn’t reach the news right now — here’s an offline investigative prompt.";
       setPrompt(generatePrompt("journalism"));
       if (Platform.OS === "web") {
-        // eslint-disable-next-line no-alert
         alert(msg);
       } else {
         Alert.alert("Offline", msg);
@@ -156,7 +155,6 @@ export default function WriteScreen() {
     const msg = e instanceof Error ? e.message : "Could not generate a prompt.";
     const quota = e instanceof ApiError && e.code === "quota_exceeded";
     if (Platform.OS === "web") {
-      // eslint-disable-next-line no-alert
       alert(msg);
       if (quota) router.push("/settings");
     } else if (quota) {
