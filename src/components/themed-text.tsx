@@ -1,10 +1,10 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { Fonts, Type, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code' | 'display' | 'heading' | 'body' | 'caption' | 'serif';
   themeColor?: ThemeColor;
 };
 
@@ -14,7 +14,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   return (
     <Text
       style={[
-        { color: theme[themeColor ?? 'text'] },
+        { color: theme[themeColor ?? (type === 'linkPrimary' ? 'tint' : 'text')] },
         type === 'default' && styles.default,
         type === 'title' && styles.title,
         type === 'small' && styles.small,
@@ -23,6 +23,11 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
+        type === 'display' && Type.display,
+        type === 'heading' && Type.heading,
+        type === 'body' && Type.body,
+        type === 'caption' && Type.caption,
+        type === 'serif' && { ...Type.writing, fontFamily: Fonts.serif },
         style,
       ]}
       {...rest}
@@ -32,42 +37,42 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
 const styles = StyleSheet.create({
   small: {
-    fontSize: 14,
+    fontSize: Type.caption.fontSize,
     lineHeight: 20,
-    fontWeight: 500,
+    fontWeight: 400,
   },
   smallBold: {
-    fontSize: 14,
+    fontSize: Type.caption.fontSize,
     lineHeight: 20,
     fontWeight: 700,
   },
   default: {
-    fontSize: 16,
+    fontSize: Type.body.fontSize,
     lineHeight: 24,
-    fontWeight: 500,
+    fontWeight: 400,
   },
   title: {
-    fontSize: 48,
+    fontSize: Type.title.fontSize,
     fontWeight: 600,
-    lineHeight: 52,
+    lineHeight: Type.title.lineHeight,
   },
   subtitle: {
-    fontSize: 32,
+    fontSize: Type.title.fontSize,
     lineHeight: 44,
     fontWeight: 600,
   },
   link: {
     lineHeight: 30,
-    fontSize: 14,
+    fontSize: Type.caption.fontSize,
   },
   linkPrimary: {
     lineHeight: 30,
-    fontSize: 14,
-    color: '#3c87f7',
+    fontSize: Type.caption.fontSize,
+
   },
   code: {
     fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: 700 }) ?? 500,
-    fontSize: 12,
+    fontSize: Type.caption.fontSize,
   },
 });

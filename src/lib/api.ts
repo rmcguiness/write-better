@@ -1,3 +1,4 @@
+import { WEB_DEMO } from './demo';
 import type { Feedback, Piece, ReviewTurn } from './types';
 
 /**
@@ -53,6 +54,7 @@ async function request<T>(
   path: string,
   opts: { method?: string; token?: string; body?: unknown } = {},
 ): Promise<T> {
+  if (WEB_DEMO) throw new ApiError(0, 'This web demo supports your own API key only.');
   const base = checkBackendUrl(backendUrl);
   let res: Response;
   try {

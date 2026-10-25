@@ -1,11 +1,12 @@
+import { Type, Radius, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MotionPressable } from '@/components/ui/motion';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { LESSONS, type Lesson } from '@/lib/learn';
 
@@ -42,7 +43,7 @@ export default function LearnScreen() {
 function LessonRow({ lesson }: { lesson: Lesson }) {
   const theme = useTheme();
   return (
-    <Pressable
+    <MotionPressable accessibilityRole="button" accessibilityLabel={lesson.title}
       onPress={() => router.push({ pathname: '/learn/[id]', params: { id: lesson.id } })}
       style={({ pressed }) => [
         styles.row,
@@ -65,7 +66,7 @@ function LessonRow({ lesson }: { lesson: Lesson }) {
         </ThemedText>
       </View>
       <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
-    </Pressable>
+    </MotionPressable>
   );
 }
 
@@ -78,26 +79,26 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
   },
-  title: { fontSize: 30, fontWeight: '800' },
+  title: { fontSize: Type.title.fontSize, fontWeight: '600' },
   tipCard: {
     flexDirection: 'row',
     gap: Spacing.three,
     alignItems: 'center',
     padding: Spacing.three,
-    borderRadius: 16,
+    borderRadius: Radius.large,
   },
-  tipText: { flex: 1, fontWeight: '600', fontSize: 15 },
+  tipText: { flex: 1, fontWeight: '600', fontSize: Type.body.fontSize },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    borderRadius: 16,
+    borderRadius: Radius.large,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
   },
-  emoji: { fontSize: 28 },
+  emoji: { fontSize: Type.title.fontSize },
   flex: { flex: 1, gap: 2 },
   rowHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: Spacing.two },
-  rowTitle: { fontSize: 17, fontWeight: '700', flex: 1 },
+  rowTitle: { fontSize: Type.body.fontSize, fontWeight: '700', flex: 1 },
   cat: { fontWeight: '700', marginTop: 2 },
 });

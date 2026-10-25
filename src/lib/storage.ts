@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { migrateKeys, writeKeys } from './key-store';
+import { WEB_DEMO } from './demo';
+
 import type { Feedback, Piece, ReviewTurn } from './types';
 
 /**
@@ -22,7 +25,7 @@ export interface AppSettings {
   provider?: 'anthropic' | 'openai' | 'xai';
   /** Selected model id for the chosen provider. */
   model?: string;
-  /** Per-provider API keys, stored only on this device. */
+  /** Hydrated keys: encrypted native storage, unencrypted browser localStorage on web. */
   apiKeys?: Partial<Record<'anthropic' | 'openai' | 'xai', string>>;
 
   // --- Managed (our backend) ---
@@ -91,17 +94,18 @@ export async function appendReview(id: string, turns: ReviewTurn[]): Promise<voi
 }
 
 export async function getSettings(): Promise<AppSettings> {
-  try {
-    const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-    return raw ? (JSON.parse(raw) as AppSettings) : {};
-  } catch {
-    return {};
-  }
+  const raw = await AsyncStorage.getItem(SETTINGS_KEY);
+  let settings: AppSettings = {};
+  try { settings = raw ? JSON.parse(raw) : {}; } catch { /* Ignore corrupt settings. */ }
+  const apiKeys = await migrateKeys(settings);
+  return { ...settings, apiKeys, ...(WEB_DEMO ? { aiMode: 'byok' as const } : {}) };
 }
 
 export async function saveSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
   const current = await getSettings();
+  if (patch.apiKeys) await writeKeys(patch.apiKeys);
   const next = { ...current, ...patch };
-  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  const { apiKeys: _keys, ...publicSettings } = next;
+  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(publicSettings));
   return next;
 }

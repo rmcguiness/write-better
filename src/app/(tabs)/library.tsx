@@ -1,4 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Type, Radius, MaxContentWidth, Spacing } from '@/constants/theme';
+import { EmptyState, Skeleton } from '@/components/ui/states';
+import { MotionView } from '@/components/ui/motion';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
@@ -6,8 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Button } from '@/components/ui/button';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getGenre } from '@/lib/genres';
 import { listPieces } from '@/lib/storage';
@@ -15,7 +15,6 @@ import { timeAgo } from '@/lib/text';
 import type { Piece } from '@/lib/types';
 
 export default function LibraryScreen() {
-  const theme = useTheme();
   const [pieces, setPieces] = useState<Piece[] | null>(null);
 
   useFocusEffect(
@@ -41,21 +40,15 @@ export default function LibraryScreen() {
         </View>
 
         {pieces && pieces.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="book-outline" size={48} color={theme.textSecondary} />
-            <ThemedText style={styles.emptyTitle}>No pieces yet</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-              Finished sessions are saved here so you can revisit, review, and revise them.
-            </ThemedText>
-            <Button title="Start writing" onPress={() => router.push('/(tabs)')} />
-          </View>
+          <View style={styles.empty}><EmptyState title="No pieces yet" message="A little practice becomes a body of work. Your finished sessions will find a home here." action="Start writing" onAction={() => router.push('/(tabs)')} /></View>
         ) : (
           <FlatList
             data={pieces ?? []}
             keyExtractor={(p) => p.id}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => <PieceRow piece={item} />}
+            ListHeaderComponent={pieces === null ? <Skeleton /> : null}
+            renderItem={({ item }) => <MotionView><PieceRow piece={item} /></MotionView>}
           />
         )}
       </SafeAreaView>
@@ -69,6 +62,7 @@ function PieceRow({ piece }: { piece: Piece }) {
 
   return (
     <Pressable
+      accessibilityRole="button" accessibilityLabel={piece.title}
       onPress={() => router.push({ pathname: '/piece/[id]', params: { id: piece.id } })}
       style={({ pressed }) => [
         styles.row,
@@ -76,13 +70,13 @@ function PieceRow({ piece }: { piece: Piece }) {
         pressed && { opacity: 0.7 },
       ]}>
       <View style={styles.rowTop}>
-        <View style={[styles.dot, { backgroundColor: genre.accent }]} />
+        <View style={[styles.dot, { backgroundColor: theme.tint }]} />
         <ThemedText type="small" themeColor="textSecondary">
           {genre.emoji} {genre.label} · {timeAgo(piece.createdAt)}
         </ThemedText>
         {piece.feedback && (
           <View style={[styles.grade, { backgroundColor: theme.tint }]}>
-            <ThemedText style={styles.gradeText}>{piece.feedback.grade}</ThemedText>
+            <ThemedText style={[styles.gradeText, { color: theme.tintText }]}>{piece.feedback.grade}</ThemedText>
           </View>
         )}
       </View>
@@ -109,7 +103,7 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
   },
-  title: { fontSize: 30, fontWeight: '800' },
+  title: { fontSize: Type.title.fontSize, fontWeight: '600' },
   list: {
     padding: Spacing.four,
     gap: Spacing.three,
@@ -118,23 +112,23 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   row: {
-    borderRadius: 16,
+    borderRadius: Radius.large,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
     gap: Spacing.one,
   },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  rowTitle: { fontSize: 17, fontWeight: '700' },
+  rowTitle: { fontSize: Type.body.fontSize, fontWeight: '700' },
   grade: {
     marginLeft: 'auto',
     minWidth: 26,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: Radius.small,
     alignItems: 'center',
   },
-  gradeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  gradeText: { color: '#fff', fontSize: Type.caption.fontSize, fontWeight: '600' },
   empty: {
     flex: 1,
     alignItems: 'center',
@@ -142,6 +136,6 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     padding: Spacing.five,
   },
-  emptyTitle: { fontSize: 20, fontWeight: '700' },
+  emptyTitle: { fontSize: Type.heading.fontSize, fontWeight: '700' },
   center: { textAlign: 'center' },
 });

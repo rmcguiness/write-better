@@ -1,6 +1,9 @@
+import { Radius, Fonts, Type, MaxContentWidth, Spacing } from '@/constants/theme';
+import { ProgressFill } from '@/components/ui/motion';
+import { ErrorState, Skeleton } from '@/components/ui/states';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,7 +19,6 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { gradePiece, isAIConfigured, peerReview, resolveAIConfig, type AIConfig } from '@/lib/ai';
 import { ApiError, getAccount, type Account } from '@/lib/api';
@@ -40,6 +42,7 @@ export default function PieceScreen() {
   const [piece, setPiece] = useState<Piece | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
+  const [aiError, setAiError] = useState<{ message: string; action: 'grade' | 'review' } | null>(null);
   const [grading, setGrading] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -59,9 +62,9 @@ export default function PieceScreen() {
     refreshAccount(resolveAIConfig(s));
   }, [id, refreshAccount]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(useCallback(() => {
+    void load();
+  }, [load]));
 
   const genre = piece ? getGenre(piece.prompt.genre) : null;
 
@@ -69,7 +72,7 @@ export default function PieceScreen() {
     navigation.setOptions({
       headerRight: () =>
         piece ? (
-          <Pressable onPress={confirmDelete} hitSlop={10} accessibilityLabel="Delete">
+          <Pressable onPress={confirmDelete} hitSlop={10} accessibilityRole="button" accessibilityLabel="Delete">
             <Ionicons name="trash-outline" size={22} color={theme.danger} />
           </Pressable>
         ) : null,
@@ -84,7 +87,6 @@ export default function PieceScreen() {
     };
     if (Platform.OS === 'web') {
       // RN Alert has no web implementation with buttons.
-      // eslint-disable-next-line no-alert
       if (confirm('Delete this piece permanently?')) doDelete();
     } else {
       Alert.alert('Delete piece?', 'This cannot be undone.', [
@@ -95,6 +97,7 @@ export default function PieceScreen() {
   }
 
   async function handleGrade() {
+    setAiError(null);
     const cfg = settings && resolveAIConfig(settings);
     if (!piece || !cfg) return;
     setGrading(true);
@@ -104,6 +107,7 @@ export default function PieceScreen() {
       setPiece({ ...piece, feedback });
       refreshAccount(cfg);
     } catch (e) {
+      setAiError({ message: e instanceof Error ? e.message : 'Could not load feedback.', action: 'grade' });
       notify(e);
     } finally {
       setGrading(false);
@@ -114,15 +118,20 @@ export default function PieceScreen() {
     const cfg = settings && resolveAIConfig(settings);
     if (!piece || !cfg) return;
     const text = draft.trim();
+    // This timestamp is captured in the send event handler.
+    // eslint-disable-next-line react-hooks/purity
     const writerTurn: ReviewTurn = { role: 'writer', text: text || '…', createdAt: Date.now() };
     const history = piece.review ?? [];
     const optimistic = text ? [...history, writerTurn] : history;
 
+    setAiError(null);
     setDraft('');
     setReviewing(true);
     setPiece({ ...piece, review: optimistic });
     try {
       const reply = await peerReview(piece, optimistic, cfg);
+      // This timestamp is captured after the review request resolves.
+      // eslint-disable-next-line react-hooks/purity
       const reviewerTurn: ReviewTurn = { role: 'reviewer', text: reply, createdAt: Date.now() };
       const toPersist = text ? [writerTurn, reviewerTurn] : [reviewerTurn];
       await appendReview(piece.id, toPersist);
@@ -130,6 +139,7 @@ export default function PieceScreen() {
       refreshAccount(cfg);
     } catch (e) {
       setPiece({ ...piece, review: history }); // roll back
+      setAiError({ message: e instanceof Error ? e.message : 'Could not load feedback.', action: 'review' });
       notify(e);
     } finally {
       setReviewing(false);
@@ -140,8 +150,7 @@ export default function PieceScreen() {
     const msg = e instanceof Error ? e.message : 'Something went wrong.';
     const quota = e instanceof ApiError && e.code === 'quota_exceeded';
     if (Platform.OS === 'web') {
-      // eslint-disable-next-line no-alert
-      alert(msg);
+      // A blocking window.alert() freezes the page; the in-page ErrorState shows the message.
       if (quota) router.push('/settings');
     } else if (quota) {
       Alert.alert('Monthly limit reached', msg, [
@@ -168,8 +177,8 @@ export default function PieceScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Prompt + meta */}
         <View style={styles.metaRow}>
-          <View style={[styles.badge, { backgroundColor: genre.accent }]}>
-            <ThemedText style={styles.badgeText}>
+          <View style={[styles.badge, { backgroundColor: theme.tint }]}>
+            <ThemedText style={[styles.badgeText, { color: theme.tintText }]}>
               {genre.emoji}  {genre.label}
             </ThemedText>
           </View>
@@ -199,6 +208,8 @@ export default function PieceScreen() {
 
         {/* Grade */}
         <SectionHeader icon="ribbon-outline" title="AI grade" />
+        {grading && <Skeleton />}
+        {aiError?.action === 'grade' && <ErrorState message={aiError.message} onRetry={handleGrade} />}
         {piece.feedback ? (
           <FeedbackView feedback={piece.feedback} onRegrade={aiReady ? handleGrade : undefined} regrading={grading} />
         ) : aiReady ? (
@@ -220,6 +231,7 @@ export default function PieceScreen() {
 
         {/* Peer review */}
         <SectionHeader icon="chatbubbles-outline" title="Peer review" />
+        {aiError?.action === 'review' && <ErrorState message={aiError.message} onRetry={handleSendReview} />}
         {aiReady ? (
           <Card>
             {(piece.review ?? []).length === 0 && !reviewing && (
@@ -235,13 +247,13 @@ export default function PieceScreen() {
 
             {reviewing && (
               <View style={[styles.bubble, styles.reviewer, { backgroundColor: theme.backgroundSelected }]}>
-                <ActivityIndicator color={theme.textSecondary} />
+                <Skeleton />
               </View>
             )}
 
             <View style={[styles.inputRow, { borderColor: theme.border }]}>
               <TextInput
-                style={[styles.input, { color: theme.text }]}
+                accessibilityLabel="Peer review message" style={[styles.input, { color: theme.text }]}
                 placeholder={
                   (piece.review ?? []).length === 0 ? 'Ask for first impressions…' : 'Reply…'
                 }
@@ -253,7 +265,7 @@ export default function PieceScreen() {
                 onSubmitEditing={handleSendReview}
               />
               <Pressable
-                onPress={handleSendReview}
+                accessibilityRole="button" accessibilityLabel="Send review message" accessibilityState={{ disabled: reviewing }} onPress={handleSendReview}
                 disabled={reviewing}
                 hitSlop={8}
                 style={[styles.send, { backgroundColor: theme.tint }, reviewing && { opacity: 0.5 }]}>
@@ -306,7 +318,7 @@ function FeedbackView({
     <Card>
       <View style={styles.gradeTop}>
         <View style={[styles.gradeCircle, { backgroundColor: theme.tint }]}>
-          <ThemedText style={styles.gradeBig}>{feedback.grade}</ThemedText>
+          <ThemedText style={[styles.gradeBig, { color: theme.tintText }]}>{feedback.grade}</ThemedText>
         </View>
         <View style={styles.flex}>
           <ThemedText style={styles.overall}>{feedback.overall}/100</ThemedText>
@@ -323,12 +335,7 @@ function FeedbackView({
               {s.label}
             </ThemedText>
             <View style={[styles.scoreTrack, { backgroundColor: theme.backgroundSelected }]}>
-              <View
-                style={[
-                  styles.scoreFill,
-                  { width: `${(s.score / s.max) * 100}%`, backgroundColor: theme.tint },
-                ]}
-              />
+              <ProgressFill progress={s.score / s.max} color={theme.tint} />
             </View>
             <ThemedText type="smallBold" style={styles.scoreNum}>
               {s.score}/{s.max}
@@ -417,7 +424,7 @@ function UsageLine({ account }: { account: Account }) {
   const remaining = unlimited ? Infinity : Math.max(0, account.usage.limit - account.usage.used);
   const out = !unlimited && remaining === 0;
   return (
-    <Pressable
+    <Pressable accessibilityRole="button" accessibilityLabel="Manage AI usage"
       onPress={() => router.push('/settings')}
       style={[styles.usageLine, { borderColor: out ? theme.danger : theme.border }]}>
       <Ionicons
@@ -448,7 +455,7 @@ function ConnectAIPrompt() {
       <View style={styles.connectRow}>
         <Ionicons name="lock-closed-outline" size={20} color={theme.textSecondary} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-          Connect an Anthropic API key to unlock AI grading and peer review.
+          Add your own API key in Settings to get AI feedback.
         </ThemedText>
       </View>
       <Button title="Open Settings" variant="secondary" onPress={() => router.push('/settings')} />
@@ -467,25 +474,25 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  badge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999 },
-  badgeText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  badge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: Radius.pill },
+  badgeText: { color: '#fff', fontSize: Type.caption.fontSize, fontWeight: '700' },
   prompt: { fontStyle: 'italic' },
-  title: { fontSize: 26, fontWeight: '800', lineHeight: 32 },
+  title: { fontSize: Type.title.fontSize, fontWeight: '600', lineHeight: 32 },
   statsRow: { flexDirection: 'row', gap: Spacing.five },
   stat: { gap: 2 },
-  statValue: { fontSize: 18, fontWeight: '700' },
-  body: { fontSize: 17, lineHeight: 27 },
+  statValue: { fontSize: Type.body.fontSize, fontWeight: '700' },
+  body: { ...Type.writing, fontFamily: Fonts.serif },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
     marginTop: Spacing.three,
   },
-  sectionTitle: { fontSize: 20, fontWeight: '800' },
+  sectionTitle: { fontSize: Type.heading.fontSize, fontWeight: '600' },
   gradeTop: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },
   gradeCircle: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
-  gradeBig: { color: '#fff', fontSize: 24, fontWeight: '800' },
-  overall: { fontSize: 22, fontWeight: '800' },
+  gradeBig: { color: '#fff', fontSize: Type.heading.fontSize, fontWeight: '600' },
+  overall: { fontSize: Type.heading.fontSize, fontWeight: '600' },
   flex: { flex: 1 },
   scores: { gap: Spacing.two },
   scoreLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
@@ -501,7 +508,7 @@ const styles = StyleSheet.create({
     maxWidth: '85%',
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: 16,
+    borderRadius: Radius.large,
   },
   writer: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   reviewer: { alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
@@ -510,26 +517,25 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
+    borderRadius: Radius.large,
     paddingLeft: Spacing.three,
     paddingRight: Spacing.one,
     paddingVertical: Spacing.one,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: Type.body.fontSize,
     maxHeight: 120,
     paddingVertical: Spacing.two,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
   },
-  send: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  send: { width: 44, height: 44, borderRadius: Radius.large, alignItems: 'center', justifyContent: 'center' },
   connectRow: { flexDirection: 'row', gap: Spacing.two, alignItems: 'center' },
   usageLine: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.medium,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
   },

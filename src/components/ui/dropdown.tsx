@@ -1,9 +1,9 @@
+import { Type, Radius, Spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface DropdownOption<T> {
@@ -37,6 +37,7 @@ export function Dropdown<T extends string | number>({
   return (
     <>
       <Pressable
+        accessibilityRole="button" accessibilityLabel={`${caption}: ${selected?.label}`} accessibilityState={{ expanded: open }}
         onPress={() => setOpen(true)}
         style={({ pressed }) => [
           styles.trigger,
@@ -57,8 +58,8 @@ export function Dropdown<T extends string | number>({
         </View>
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+      <Modal visible={open} transparent animationType="none" onRequestClose={() => setOpen(false)}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close options" style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable
             style={[styles.sheet, { backgroundColor: theme.background, borderColor: theme.border }]}>
             {!!caption && (
@@ -71,7 +72,7 @@ export function Dropdown<T extends string | number>({
                 const isSel = o.value === value;
                 return (
                   <Pressable
-                    key={String(o.value)}
+                    key={String(o.value)} accessibilityRole="button" accessibilityLabel={o.label} accessibilityState={{ selected: isSel }}
                     onPress={() => {
                       onChange(o.value);
                       setOpen(false);
@@ -83,12 +84,12 @@ export function Dropdown<T extends string | number>({
                       pressed && !isSel && { backgroundColor: theme.backgroundElement },
                     ]}>
                     <ThemedText
-                      style={[styles.rowText, { color: isSel ? '#fff' : theme.text }]}
+                      style={[styles.rowText, { color: isSel ? theme.tintText : theme.text }]}
                       numberOfLines={1}>
                       {o.emoji ? `${o.emoji}  ` : ''}
                       {o.label}
                     </ThemedText>
-                    {isSel && <Ionicons name="checkmark" size={18} color="#fff" />}
+                    {isSel && <Ionicons name="checkmark" size={18} color={theme.tintText} />}
                   </Pressable>
                 );
               })}
@@ -102,17 +103,19 @@ export function Dropdown<T extends string | number>({
 
 const styles = StyleSheet.create({
   trigger: {
-    flex: 1,
-    minWidth: 0,
+    flexGrow: 1,
+    flexBasis: 140,
+    minHeight: 64,
+    minWidth: 140,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 14,
+    borderRadius: Radius.medium,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     gap: 2,
   },
-  caption: { fontWeight: '700', fontSize: 12 },
+  caption: { fontWeight: '700', fontSize: Type.caption.fontSize },
   triggerValue: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.one },
-  value: { fontSize: 15, fontWeight: '600', flexShrink: 1 },
+  value: { fontSize: Type.body.fontSize, fontWeight: '600', flexShrink: 1 },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -124,7 +127,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     maxHeight: '70%',
-    borderRadius: 18,
+    borderRadius: Radius.large,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
   },
@@ -136,7 +139,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.three,
-    borderRadius: 12,
+    borderRadius: Radius.medium,
   },
-  rowText: { fontSize: 16, fontWeight: '600', flexShrink: 1 },
+  rowText: { fontSize: Type.body.fontSize, fontWeight: '600', flexShrink: 1 },
 });

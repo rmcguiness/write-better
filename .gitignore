@@ -57,3 +57,6 @@ GoogleService-Info.plist
 *.db-wal
 *.sqlite
 *.sqlite3
+
+playwright-report/
+test-results/

@@ -187,6 +187,11 @@ export function reviewSystemPrompt(piece: Piece): string {
   ].join('\n');
 }
 
+/** Parse the provider JSON as returned; validation is delegated to its schema. */
+export function parseFeedback(text: string): RawFeedback {
+  return JSON.parse(text) as RawFeedback;
+}
+
 export function finalizeFeedback(raw: RawFeedback, model: string): Feedback {
   return { ...raw, grade: letterGrade(raw.overall), model, createdAt: Date.now() };
 }
@@ -197,6 +202,8 @@ export function seedHistory(history: ReviewTurn[]): ReviewTurn[] {
     : [{ role: 'writer', text: 'Can you give me your first impressions?', createdAt: Date.now() }];
 }
 
+// These clients are used only for explicit BYOK: browser access sends the user’s key
+// directly to their chosen provider, never to our managed backend.
 // ----- Provider calls --------------------------------------------------------
 
 function openAICompatibleClient(provider: ProviderId, apiKey: string): OpenAI {
@@ -226,7 +233,7 @@ export async function gradeWithProvider(
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map((b) => b.text)
       .join('');
-    return finalizeFeedback(JSON.parse(text) as RawFeedback, model);
+    return finalizeFeedback(parseFeedback(text), model);
   }
 
   // OpenAI + xAI
@@ -243,7 +250,7 @@ export async function gradeWithProvider(
         : { type: 'json_object' },
   });
   const text = completion.choices[0]?.message?.content ?? '{}';
-  return finalizeFeedback(JSON.parse(text) as RawFeedback, model);
+  return finalizeFeedback(parseFeedback(text), model);
 }
 
 export async function reviewWithProvider(
@@ -337,7 +344,7 @@ export function friendlyProviderError(err: unknown): Error {
     return new Error('Rate limited — give it a moment and try again.');
   }
   if (err instanceof Anthropic.APIError || err instanceof OpenAI.APIError) {
-    return new Error(`AI request failed (${(err as { status?: number }).status ?? 'network'}).`);
+    return new Error(err.status ? `The AI provider could not complete the request (${err.status}). Try again later.` : 'Could not connect to the AI provider. Check your connection; the provider may block browser requests (CORS).');
   }
   return new Error('Could not reach the AI service.');
 }

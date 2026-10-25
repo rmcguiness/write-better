@@ -138,6 +138,11 @@ function openAICompatible(): OpenAI {
   });
 }
 
+/** Parse the provider JSON as returned; validation is delegated to its schema. */
+export function parseFeedback(text: string): RawFeedback {
+  return JSON.parse(text) as RawFeedback;
+}
+
 export async function grade(piece: Piece): Promise<Feedback> {
   const model = env.aiModel;
   let raw: RawFeedback;
@@ -155,7 +160,7 @@ export async function grade(piece: Piece): Promise<Feedback> {
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map((b) => b.text)
       .join('');
-    raw = JSON.parse(text) as RawFeedback;
+    raw = parseFeedback(text);
   } else {
     const completion = await openAICompatible().chat.completions.create({
       model,
@@ -168,7 +173,7 @@ export async function grade(piece: Piece): Promise<Feedback> {
           ? { type: 'json_schema', json_schema: { name: 'grade', strict: true, schema: GRADE_SCHEMA as Record<string, unknown> } }
           : { type: 'json_object' },
     });
-    raw = JSON.parse(completion.choices[0]?.message?.content ?? '{}') as RawFeedback;
+    raw = parseFeedback(completion.choices[0]?.message?.content ?? '{}');
   }
 
   return { ...raw, grade: letterGrade(raw.overall), model, createdAt: Date.now() };
