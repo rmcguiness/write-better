@@ -72,3 +72,14 @@ server/                    # managed backend (Hono + SQLite + Stripe) — see se
 
 `src/lib/ai.ts` hides which mode is active, so screens never care where feedback
 comes from.
+
+## Security
+
+Please report vulnerabilities privately; see [SECURITY.md](./SECURITY.md). Never commit real
+API keys or `.env` files. The managed backend's configuration is described in
+[server/README.md](./server/README.md) and `server/.env.example`.
+
+## License
+
+[MIT](./LICENSE) © 2026 Ryan McGuiness. The project was bootstrapped from the
+`create-expo-app` template (© 650 Industries, Inc., MIT).

@@ -1,20 +1,24 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import { sign, verify } from 'hono/jwt';
 
 import { env } from './env.js';
 
 /** Password hashing (scrypt) and JWT issue/verify. No external auth deps. */
 
-export function hashPassword(password: string): string {
+const scryptAsync = promisify(scrypt) as (password: string, salt: string, keylen: number) => Promise<Buffer>;
+
+// Async scrypt so hashing doesn't block the event loop.
+export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
-  const hash = scryptSync(password, salt, 64).toString('hex');
+  const hash = (await scryptAsync(password, salt, 64)).toString('hex');
   return `${salt}:${hash}`;
 }
 
-export function verifyPassword(password: string, stored: string): boolean {
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [salt, hash] = stored.split(':');
   if (!salt || !hash) return false;
-  const computed = scryptSync(password, salt, 64);
+  const computed = await scryptAsync(password, salt, 64);
   const expected = Buffer.from(hash, 'hex');
   return computed.length === expected.length && timingSafeEqual(computed, expected);
 }
@@ -36,6 +40,10 @@ export async function userIdFromAuthHeader(header: string | undefined): Promise<
   }
 }
 
-export function isValidEmail(email: string): boolean {
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+export function isValidEmail(email: unknown): email is string {
+  return typeof email === 'string' && email.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+}
+
+export function isValidPassword(password: unknown): password is string {
+  return typeof password === 'string' && password.length >= 8 && password.length <= 128;
 }

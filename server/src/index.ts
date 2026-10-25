@@ -1,9 +1,11 @@
 import { serve } from '@hono/node-server';
 import { Hono, type MiddlewareHandler } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 
 import {
   isValidEmail,
+  isValidPassword,
   hashPassword,
   issueToken,
   userIdFromAuthHeader,
@@ -14,38 +16,58 @@ import {
   createUser,
   getUserByEmail,
   getUserById,
-  recordUsage,
+  releaseUsage,
+  reserveUsage,
   type UserRow,
 } from './db.js';
 import { billingEnabled, env } from './env.js';
-import { accountFor, withinQuota } from './plans.js';
-import { generatePrompt, grade, review, type Piece, type ReviewTurn } from './providers.js';
+import { accountFor, planLimit } from './plans.js';
+import { generatePrompt, grade, review } from './providers.js';
+import { clientIp, rateLimit } from './ratelimit.js';
+import { LIMITS, parseHistory, parsePiece, parsePromptRequest } from './validate.js';
 
 type Vars = { Variables: { user: UserRow } };
 const app = new Hono<Vars>();
 
-app.use('*', cors());
+const allowedOrigins =
+  env.corsOrigins.length > 0 ? env.corsOrigins : env.isProduction ? [new URL(env.appUrl).origin] : ['*'];
+app.use('*', cors({ origin: allowedOrigins.includes('*') ? '*' : allowedOrigins }));
+app.use(
+  '*',
+  bodyLimit({ maxSize: LIMITS.maxBodyBytes, onError: (c) => c.json({ error: 'Request is too large.' }, 413) }),
+);
+
+/** Parse a JSON body without throwing on malformed input. */
+async function jsonBody(c: { req: { json: () => Promise<unknown> } }): Promise<unknown> {
+  try {
+    return await c.req.json();
+  } catch {
+    return undefined;
+  }
+}
 
 app.get('/', (c) => c.json({ ok: true, service: 'write-better', billing: billingEnabled }));
 
 // --- Auth --------------------------------------------------------------------
 
+app.use('/auth/*', rateLimit({ perMinute: env.authRateLimitPerMinute, key: clientIp }));
+
 app.post('/auth/signup', async (c) => {
-  const { email, password } = await c.req.json<{ email?: string; password?: string }>();
-  if (!email || !isValidEmail(email)) return c.json({ error: 'Enter a valid email.' }, 400);
-  if (!password || password.length < 8)
-    return c.json({ error: 'Password must be at least 8 characters.' }, 400);
+  const { email, password } = ((await jsonBody(c)) ?? {}) as { email?: unknown; password?: unknown };
+  if (!isValidEmail(email)) return c.json({ error: 'Enter a valid email.' }, 400);
+  if (!isValidPassword(password))
+    return c.json({ error: 'Password must be 8 to 128 characters.' }, 400);
   if (getUserByEmail(email)) return c.json({ error: 'An account with that email already exists.' }, 409);
 
-  const user = createUser(email, hashPassword(password));
+  const user = createUser(email, await hashPassword(password));
   const token = await issueToken(user.id);
   return c.json({ token, account: accountFor(user) });
 });
 
 app.post('/auth/login', async (c) => {
-  const { email, password } = await c.req.json<{ email?: string; password?: string }>();
-  const user = email ? getUserByEmail(email) : undefined;
-  if (!user || !password || !verifyPassword(password, user.password_hash)) {
+  const { email, password } = ((await jsonBody(c)) ?? {}) as { email?: unknown; password?: unknown };
+  const user = isValidEmail(email) ? getUserByEmail(email) : undefined;
+  if (!user || !isValidPassword(password) || !(await verifyPassword(password, user.password_hash))) {
     return c.json({ error: 'Wrong email or password.' }, 401);
   }
   const token = await issueToken(user.id);
@@ -68,60 +90,81 @@ app.use('/prompts/*', requireAuth);
 app.use('/billing/checkout', requireAuth);
 app.use('/billing/portal', requireAuth);
 
+const aiRateLimit = rateLimit({ perMinute: env.aiRateLimitPerMinute, key: (c) => c.get('user')?.id });
+app.use('/feedback/*', aiRateLimit);
+app.use('/prompts/*', aiRateLimit);
+
 app.get('/me', (c) => c.json({ account: accountFor(c.get('user')) }));
+
+/** Reserve one unit of quota before calling the provider; null = over quota. */
+function reserve(user: UserRow, kind: 'grade' | 'review' | 'prompt'): string | null {
+  return reserveUsage(user.id, kind, planLimit(user.plan));
+}
+
+function providerError(c: Parameters<MiddlewareHandler>[0], e: unknown, message: string) {
+  console.error(`[write-better] ${message}`, e instanceof Error ? e.message : e);
+  return c.json({ error: message }, 502);
+}
 
 // --- Feedback (metered) ------------------------------------------------------
 
 app.post('/feedback/grade', async (c) => {
   const user = c.get('user');
-  if (!withinQuota(user))
+  const body = (await jsonBody(c)) as { piece?: unknown } | undefined;
+  const piece = parsePiece(body?.piece);
+  if (!piece) return c.json({ error: 'Missing or invalid piece.' }, 400);
+  const reservation = reserve(user, 'grade');
+  if (!reservation)
     return c.json(
       { error: 'You’ve used all your feedback for this month. Upgrade to keep going.', code: 'quota_exceeded' },
       402,
     );
-  const { piece } = await c.req.json<{ piece: Piece }>();
-  if (!piece?.body) return c.json({ error: 'Missing piece.' }, 400);
   try {
     const feedback = await grade(piece);
-    recordUsage(user.id, 'grade');
     return c.json({ feedback });
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Grading failed.' }, 502);
+    releaseUsage(reservation);
+    return providerError(c, e, 'Grading failed. Please try again.');
   }
 });
 
 app.post('/feedback/review', async (c) => {
   const user = c.get('user');
-  if (!withinQuota(user))
+  const body = (await jsonBody(c)) as { piece?: unknown; history?: unknown } | undefined;
+  const piece = parsePiece(body?.piece);
+  const history = parseHistory(body?.history);
+  if (!piece || !history) return c.json({ error: 'Missing or invalid piece or history.' }, 400);
+  const reservation = reserve(user, 'review');
+  if (!reservation)
     return c.json(
       { error: 'You’ve used all your feedback for this month. Upgrade to keep going.', code: 'quota_exceeded' },
       402,
     );
-  const { piece, history } = await c.req.json<{ piece: Piece; history?: ReviewTurn[] }>();
-  if (!piece?.body) return c.json({ error: 'Missing piece.' }, 400);
   try {
-    const reply = await review(piece, history ?? []);
-    recordUsage(user.id, 'review');
+    const reply = await review(piece, history);
     return c.json({ reply });
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Review failed.' }, 502);
+    releaseUsage(reservation);
+    return providerError(c, e, 'Review failed. Please try again.');
   }
 });
 
 app.post('/prompts/generate', async (c) => {
   const user = c.get('user');
-  if (!withinQuota(user))
+  const req = parsePromptRequest(await jsonBody(c));
+  if (!req) return c.json({ error: 'Invalid genre or word target.' }, 400);
+  const reservation = reserve(user, 'prompt');
+  if (!reservation)
     return c.json(
       { error: 'You’ve used all your AI for this month. Upgrade to keep going.', code: 'quota_exceeded' },
       402,
     );
-  const { genre, wordTarget } = await c.req.json<{ genre?: string; wordTarget?: number }>();
   try {
-    const prompt = await generatePrompt(genre ?? 'literary', wordTarget ?? 0);
-    recordUsage(user.id, 'prompt');
+    const prompt = await generatePrompt(req.genre, req.wordTarget);
     return c.json(prompt);
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Prompt generation failed.' }, 502);
+    releaseUsage(reservation);
+    return providerError(c, e, 'Prompt generation failed. Please try again.');
   }
 });
 
@@ -132,7 +175,7 @@ app.post('/billing/checkout', async (c) => {
   try {
     return c.json({ url: await createCheckoutUrl(c.get('user')) });
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Checkout failed.' }, 502);
+    return providerError(c, e, 'Checkout failed. Please try again.');
   }
 });
 
@@ -141,7 +184,7 @@ app.post('/billing/portal', async (c) => {
   try {
     return c.json({ url: await createPortalUrl(c.get('user')) });
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Could not open billing portal.' }, 502);
+    return providerError(c, e, 'Could not open the billing portal. Please try again.');
   }
 });
 
@@ -154,7 +197,8 @@ app.post('/billing/webhook', async (c) => {
     await handleWebhook(raw, signature);
     return c.json({ received: true });
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'Webhook error.' }, 400);
+    console.error('[write-better] Stripe webhook rejected', e instanceof Error ? e.message : e);
+    return c.json({ error: 'Webhook error.' }, 400);
   }
 });
 
