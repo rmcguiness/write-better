@@ -76,11 +76,13 @@ for (const status of [401, 429, 0]) {
     await page.getByText('Start writing', { exact: true }).click();
     await page.getByPlaceholder('Start writing…').fill('A short story for testing graceful provider failures.');
     await page.getByText('Done', { exact: true }).click();
-    const dialog = page.waitForEvent('dialog');
+    const dialogs: string[] = [];
+    page.on('dialog', d => { dialogs.push(d.message()); void d.dismiss(); });
     await page.getByText('Grade my writing', { exact: true }).click();
-    const message = await dialog;
-    expect(message.message()).toContain(status === 401 ? 'key was rejected' : status === 429 ? 'Rate limited' : 'Check your connection');
-    await message.dismiss();
+    const expected = status === 401 ? 'key was rejected' : status === 429 ? 'Rate limited' : 'Check your connection';
+    await expect(page.getByRole('alert').filter({ hasText: expected })).toBeVisible();
+    await expect(page.getByText('Try again', { exact: true })).toBeVisible();
     await expect(page.getByText('Grade my writing', { exact: true })).toBeVisible();
+    expect(dialogs).toEqual([]);
   });
 }

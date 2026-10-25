@@ -42,7 +42,7 @@ export default function PieceScreen() {
   const [piece, setPiece] = useState<Piece | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<{ message: string; action: 'grade' | 'review' } | null>(null);
   const [grading, setGrading] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -107,7 +107,7 @@ export default function PieceScreen() {
       setPiece({ ...piece, feedback });
       refreshAccount(cfg);
     } catch (e) {
-      setAiError(e instanceof Error ? e.message : 'Could not load feedback.');
+      setAiError({ message: e instanceof Error ? e.message : 'Could not load feedback.', action: 'grade' });
       notify(e);
     } finally {
       setGrading(false);
@@ -124,6 +124,7 @@ export default function PieceScreen() {
     const history = piece.review ?? [];
     const optimistic = text ? [...history, writerTurn] : history;
 
+    setAiError(null);
     setDraft('');
     setReviewing(true);
     setPiece({ ...piece, review: optimistic });
@@ -138,7 +139,7 @@ export default function PieceScreen() {
       refreshAccount(cfg);
     } catch (e) {
       setPiece({ ...piece, review: history }); // roll back
-      setAiError(e instanceof Error ? e.message : 'Could not load feedback.');
+      setAiError({ message: e instanceof Error ? e.message : 'Could not load feedback.', action: 'review' });
       notify(e);
     } finally {
       setReviewing(false);
@@ -149,7 +150,7 @@ export default function PieceScreen() {
     const msg = e instanceof Error ? e.message : 'Something went wrong.';
     const quota = e instanceof ApiError && e.code === 'quota_exceeded';
     if (Platform.OS === 'web') {
-      alert(msg);
+      // A blocking window.alert() freezes the page; the in-page ErrorState shows the message.
       if (quota) router.push('/settings');
     } else if (quota) {
       Alert.alert('Monthly limit reached', msg, [
@@ -208,7 +209,7 @@ export default function PieceScreen() {
         {/* Grade */}
         <SectionHeader icon="ribbon-outline" title="AI grade" />
         {grading && <Skeleton />}
-        {aiError && <ErrorState message={aiError} onRetry={handleGrade} />}
+        {aiError?.action === 'grade' && <ErrorState message={aiError.message} onRetry={handleGrade} />}
         {piece.feedback ? (
           <FeedbackView feedback={piece.feedback} onRegrade={aiReady ? handleGrade : undefined} regrading={grading} />
         ) : aiReady ? (
@@ -230,6 +231,7 @@ export default function PieceScreen() {
 
         {/* Peer review */}
         <SectionHeader icon="chatbubbles-outline" title="Peer review" />
+        {aiError?.action === 'review' && <ErrorState message={aiError.message} onRetry={handleSendReview} />}
         {aiReady ? (
           <Card>
             {(piece.review ?? []).length === 0 && !reviewing && (
