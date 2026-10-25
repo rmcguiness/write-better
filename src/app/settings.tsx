@@ -22,7 +22,9 @@ import {
 import { defaultModel, getProvider, PROVIDERS, type ProviderId } from '@/lib/providers';
 import { getSettings, saveSettings, type AIMode, type AppSettings } from '@/lib/storage';
 
-const DEFAULT_BACKEND = 'http://localhost:8787';
+import { WEB_DEMO } from '@/lib/demo';
+
+const DEFAULT_BACKEND = process.env.EXPO_PUBLIC_MANAGED_SERVER_URL ?? 'http://localhost:8787';
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -55,7 +57,7 @@ export default function SettingsScreen() {
       setBackendUrl(s.backendUrl ?? DEFAULT_BACKEND);
       setEmail(s.authEmail ?? '');
       setLoaded(true);
-      if (s.aiMode === 'managed' && s.backendUrl && s.authToken) {
+      if (!WEB_DEMO && s.aiMode === 'managed' && s.backendUrl && s.authToken) {
         refreshAccount(s.backendUrl, s.authToken);
       }
     });
@@ -73,14 +75,19 @@ export default function SettingsScreen() {
   }
 
   async function saveByok() {
-    const updated = await saveSettings({
-      aiMode: 'byok',
-      provider,
-      model,
-      apiKeys: { ...settings.apiKeys, [provider]: keyDraft.trim() || undefined },
-    });
-    setSettings(updated);
-    flash();
+    setError(null);
+    try {
+      const updated = await saveSettings({
+        aiMode: 'byok',
+        provider,
+        model,
+        apiKeys: { ...settings.apiKeys, [provider]: keyDraft.trim() || undefined },
+      });
+      setSettings(updated);
+      flash();
+    } catch {
+      setError('Could not save your key. Please try again.');
+    }
   }
 
   const [savedFlash, setSavedFlash] = useState(false);
@@ -157,13 +164,14 @@ export default function SettingsScreen() {
         {/* Mode toggle */}
         <Card>
           <ThemedText style={styles.cardTitle}>How AI is powered</ThemedText>
+          {WEB_DEMO && <ThemedText type="small">This web demo uses your own API key. Managed accounts are unavailable.</ThemedText>}
           <View style={styles.segment}>
-            <SegmentButton
+            {!WEB_DEMO && <SegmentButton
               label="Use my account"
               sub="We handle the AI; pick a plan"
               active={mode === 'managed'}
               onPress={() => setMode('managed')}
-            />
+            />}
             <SegmentButton
               label="Bring my own key"
               sub="Use your own provider key"
@@ -207,6 +215,7 @@ export default function SettingsScreen() {
             <View style={[styles.inputRow, { borderColor: theme.border }]}>
               <TextInput
                 style={[styles.input, { color: theme.text }]}
+                accessibilityLabel="API key"
                 placeholder={providerInfo.keyHint}
                 placeholderTextColor={theme.textSecondary}
                 value={keyDraft}
@@ -223,9 +232,12 @@ export default function SettingsScreen() {
               />
             </View>
 
+            {!!error && <ThemedText>{error}</ThemedText>}
             <Button title={savedFlash ? 'Saved ✓' : 'Save'} onPress={saveByok} />
             <ThemedText type="small" themeColor="textSecondary">
-              Your key is stored only on this device and sent straight to {providerInfo.label}.
+              {Platform.OS === 'web'
+                ? `Your key is sent only to ${providerInfo.label} from this browser. It is saved in this browser’s unencrypted local storage.`
+                : `Your key is encrypted on this device and sent only to ${providerInfo.label}.`}
             </ThemedText>
           </Card>
         ) : (
@@ -297,8 +309,7 @@ export default function SettingsScreen() {
         <Card>
           <ThemedText type="smallBold">Multiple AIs, your choice</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Bring your own key from Anthropic (Claude), OpenAI (ChatGPT), or xAI (Grok) — or skip the
-            setup and use a plan on your account. Note: a chat membership (ChatGPT Plus, Claude Pro,
+            Bring your own key from Anthropic (Claude), OpenAI (ChatGPT), or xAI (Grok) {!WEB_DEMO && "— or skip the setup and use a plan on your account."} Note: a chat membership (ChatGPT Plus, Claude Pro,
             Grok) is not an API key; you create API keys in each provider’s developer console.
           </ThemedText>
         </Card>

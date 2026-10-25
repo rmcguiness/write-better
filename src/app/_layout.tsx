@@ -1,8 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
 
 export default function RootLayout() {
+  // Register icon fonts during static rendering too, so hydration sees the same glyphs.
+  useFonts(Ionicons.font);
   const scheme = useColorScheme();
 
   return (

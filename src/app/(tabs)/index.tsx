@@ -53,9 +53,10 @@ const TIMER_OPTIONS: DropdownOption<number>[] = [
 export default function WriteScreen() {
   const theme = useTheme();
   const [genre, setGenre] = useState<GenreId>("journalism");
-  const [prompt, setPrompt] = useState<Prompt>(() =>
-    generatePrompt("journalism"),
-  );
+  // Keep static HTML and the first browser render identical. Generate after storage loads.
+  const [prompt, setPrompt] = useState<Prompt>({
+    id: 'loading', genre: 'journalism', text: 'Your next writing prompt is loading…',
+  });
   const [wordTarget, setWordTarget] = useState(250);
   const [durationSec, setDurationSec] = useState(0);
   const [settings, setSettings] = useState<AppSettings>({});
@@ -80,10 +81,11 @@ export default function WriteScreen() {
       getSettings().then((s) => {
         if (!active) return;
         setSettings(s);
+        if (!s.lastGenre) setPrompt((prev) => prev.id === "loading" ? generatePrompt("journalism") : prev);
         if (s.lastGenre) {
           const g = s.lastGenre as GenreId;
           setGenre(g);
-          setPrompt((prev) => (prev.genre === g ? prev : generatePrompt(g)));
+          setPrompt((prev) => (prev.genre === g && prev.id !== "loading" ? prev : generatePrompt(g)));
         }
         if (typeof s.lastWordTarget === "number")
           setWordTarget(s.lastWordTarget);
@@ -299,7 +301,7 @@ export default function WriteScreen() {
               </View>
             </View>
 
-            <ThemedText style={styles.promptText}>{prompt.text}</ThemedText>
+            <ThemedText testID="writing-prompt" style={styles.promptText}>{prompt.text}</ThemedText>
 
             {!!prompt.tip && (
               <View style={[styles.tip, { borderTopColor: theme.border }]}>
@@ -342,6 +344,10 @@ export default function WriteScreen() {
             />
           </View>
 
+          {!resolveAIConfig(settings) && <Card>
+            <ThemedText type="small">Add your own API key in Settings to get AI feedback.</ThemedText>
+            <Button title="Open Settings" variant="secondary" onPress={() => router.push('/settings')} />
+          </Card>}
           <Button
             title="Start writing"
             size="lg"

@@ -1,4 +1,5 @@
 import { generatePromptViaBackend, gradeViaBackend, reviewViaBackend } from './api';
+import { WEB_DEMO } from './demo';
 import { getGenre } from './genres';
 import { newId } from './id';
 import {
@@ -24,7 +25,7 @@ export type AIConfig =
 
 /** Resolve usable AI config from settings, or null if nothing is connected. */
 export function resolveAIConfig(s: AppSettings): AIConfig | null {
-  if (s.aiMode === 'managed') {
+  if (!WEB_DEMO && s.aiMode === 'managed') {
     if (s.backendUrl && s.authToken) {
       return { mode: 'managed', backendUrl: s.backendUrl, token: s.authToken };
     }

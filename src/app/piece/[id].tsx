@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -59,11 +59,9 @@ export default function PieceScreen() {
     refreshAccount(resolveAIConfig(s));
   }, [id, refreshAccount]);
 
-  useEffect(() => {
-    // Loading persisted data updates state after the storage promises resolve.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, [load]);
+  useFocusEffect(useCallback(() => {
+    void load();
+  }, [load]));
 
   const genre = piece ? getGenre(piece.prompt.genre) : null;
 
@@ -452,7 +450,7 @@ function ConnectAIPrompt() {
       <View style={styles.connectRow}>
         <Ionicons name="lock-closed-outline" size={20} color={theme.textSecondary} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-          Connect an Anthropic API key to unlock AI grading and peer review.
+          Add your own API key in Settings to get AI feedback.
         </ThemedText>
       </View>
       <Button title="Open Settings" variant="secondary" onPress={() => router.push('/settings')} />

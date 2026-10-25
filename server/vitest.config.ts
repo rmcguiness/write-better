@@ -9,5 +9,5 @@ export default defineConfig({
       replacement: fileURLToPath(new URL('./tests/env.ts', import.meta.url)),
     }],
   },
-  test: { setupFiles: ['./tests/setup.ts'] },
+  test: { setupFiles: [fileURLToPath(new URL('./tests/setup.ts', import.meta.url))] },
 });

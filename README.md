@@ -83,3 +83,25 @@ API keys or `.env` files. The managed backend's configuration is described in
 
 [MIT](./LICENSE) © 2026 Ryan McGuiness. The project was bootstrapped from the
 `create-expo-app` template (© 650 Industries, Inc., MIT).
+
+## Static web demo
+
+Run `npm run build:web`, then `node scripts/serve-web.mjs` to preview `dist/` at
+http://127.0.0.1:4173. The static server resolves exported `.html` routes and
+saved-piece/lesson deep links. No managed backend is needed.
+
+Web defaults to BYOK-only when `EXPO_PUBLIC_MANAGED_SERVER_URL` is absent.
+`EXPO_PUBLIC_WEB_DEMO=true` explicitly forces this mode even when that URL is
+configured. These are build-time settings. Never put provider keys in build-time
+variables: users enter their own keys in Settings. Native managed mode is unchanged.
+
+Prompts, sessions, Library, and Learn work without an AI key. AI requests go
+directly to the selected provider; browsers store keys in unencrypted localStorage.
+iOS/Android use SecureStore, migrating old settings keys on first read and removing
+the plaintext copy only after successful storage. Native builds must include the
+new SecureStore plugin.
+
+Run `npm run e2e` after exporting. Install Chromium with
+`npx playwright install --with-deps chromium` if needed. Tests block external
+requests and mock provider responses using obviously fake keys. CI exports and
+runs these tests separately, retaining the Playwright report on failure.

@@ -15,7 +15,7 @@ describe.each(['anthropic', 'openai', 'xai'] as const)('%s provider', provider =
  it('selects the client, model and structured grading request', async () => {
   respond(provider, JSON.stringify(raw));
   expect(await gradeWithProvider(provider, 'chosen-model', 'test-key', piece)).toMatchObject({ ...raw, grade: 'A', model: 'chosen-model' });
-  expect(provider === 'anthropic' ? mocks.anthropic : mocks.openai).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'test-key', ...(provider === 'anthropic' ? {} : { baseURL: provider === 'xai' ? 'https://api.x.ai/v1' : undefined }) }));
+  expect(provider === 'anthropic' ? mocks.anthropic : mocks.openai).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'test-key', dangerouslyAllowBrowser: true, ...(provider === 'anthropic' ? {} : { baseURL: provider === 'xai' ? 'https://api.x.ai/v1' : undefined }) }));
   const request = mocks.create.mock.calls[0][0];
   expect(request.model).toBe('chosen-model');
   expect(request.messages.at(-1)).toEqual({ role: 'user', content: piece.body });
