@@ -3,6 +3,16 @@
 This is a personal project, so the list is a direction, not a promise. Items
 near the top come first.
 
+## In review
+
+- [ ] **Vercel preview config** (#21) for the static BYOK web demo.
+- [ ] **Pro plan groundwork** (#22): monthly and daily usage caps per plan, a
+      per-IP rate limit on AI routes, and cap-reached UI. No billing changes.
+- [ ] **Dependency upgrade pass** (#23): Anthropic SDK 1.x, OpenAI 7, Hono
+      node-server 2, Vitest 5, and Expo SDK 56 package alignment.
+- [ ] **Contributor docs:** CONTRIBUTING.md, a code of conduct, and issue and
+      PR templates.
+
 ## Next
 
 - [ ] **Test native builds on real devices.** Run iOS and Android through a dev
@@ -33,4 +43,7 @@ near the top come first.
 - [ ] Take Expo SDK upgrades as whole-SDK bumps (`npx expo install --fix`), not
       piecemeal major bumps from Dependabot. React and React DOM are pinned by
       Expo and ignored in `dependabot.yml`.
-- [ ] Review the open major-version Dependabot PRs one at a time.
+- [ ] Review the open major-version Dependabot PRs one at a time. Still open
+      after #23: Stripe 23 (needs a test-mode end-to-end run because the API
+      version changes) and TypeScript 7 (blocked until typescript-eslint and
+      `expo lint` support it).

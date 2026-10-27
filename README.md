@@ -93,8 +93,10 @@ See [TESTING.md](./TESTING.md) for details.
 
 ## Run it
 
+Requires Node.js 22.
+
 ```bash
-npm install
+npm ci
 npm run web      # browser (dev server)
 npm run ios      # iOS simulator (needs Xcode)
 npm run android  # Android emulator
@@ -104,10 +106,10 @@ Checks:
 
 ```bash
 npm run lint && npx tsc --noEmit && npm test
-cd server && npm install && npm run typecheck && npm test
+cd server && npm ci && npm run typecheck && npm test
 ```
 
-Managed backend: `cd server && npm install && npm run dev`. See
+Managed backend: `cd server && npm ci && npm run dev`. See
 [server/README.md](./server/README.md) and `server/.env.example`.
 
 ## Static web demo (BYOK only)
@@ -122,10 +124,12 @@ node scripts/serve-web.mjs                    # preview at http://127.0.0.1:4173
 npm run e2e                                   # Playwright against dist/
 ```
 
-### Hosting it for free (not deployed)
+### Hosting it for free (no public deployment)
 
-`dist/` is a plain static site, so any free static host will serve it. Nothing
-is deployed today. If you want a public demo:
+`dist/` is a plain static site, so any free static host will serve it. There is
+no public deployment today. A Vercel project builds private preview deployments
+of pull requests (they need a Vercel login), and #21 adds the `vercel.json` for
+them. If you want a public demo:
 
 - **Vercel:** import the repo, set the build command to
   `EXPO_PUBLIC_WEB_DEMO=true npx expo export --platform web` and the output
@@ -155,6 +159,11 @@ docs/screenshots/      README images (WebP)
 ## Roadmap
 
 See [ROADMAP.md](./ROADMAP.md).
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md)
+for setup and the checks to run, and the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Security
 
