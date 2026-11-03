@@ -104,8 +104,9 @@ APP_URL=http://localhost:8787 npm run dev
 
 Steps 3, 8 and 9 need a browser for the hosted Checkout page. To check the webhooks without
 a browser, create the subscription directly instead:
-`stripe subscriptions create --customer cus_... -d "items[0][price]=price_..." -d payment_behavior=error_if_incomplete --default-payment-method pm_card_visa`
-(attach `pm_card_visa` to the customer first).
+first attach a test card with `stripe payment_methods attach pm_card_visa --customer cus_...`
+(note the returned `pm_...` id), then run
+`stripe subscriptions create --customer cus_... -d "items[0][price]=price_..." -d default_payment_method=pm_... -d payment_behavior=error_if_incomplete`.
 
 Record the results in a table (event id, HTTP status, plan before and after) in the PR. Don't
 include keys or `whsec_` values.
