@@ -1,5 +1,7 @@
 /** Centralized environment access with sensible defaults. */
 
+import { parseCap } from './caps.js';
+
 // Load .env if present (Node 20.12+ / 22+ built-in; no dependency needed).
 try {
   process.loadEnvFile();
@@ -26,6 +28,10 @@ function jwtSecret(): string {
   }
   console.warn('[write-better] JWT_SECRET is missing or weak; using an insecure dev secret. Never do this in production.');
   return v || 'dev-insecure-secret-change-me';
+}
+
+function cap(name: string, fallback: number): number {
+  return parseCap(name, process.env[name], fallback);
 }
 
 function list(name: string): string[] {
@@ -57,12 +63,18 @@ export const env = {
   stripePriceId: process.env.STRIPE_PRICE_ID || '',
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
 
-  freeMonthlyLimit: num('FREE_MONTHLY_LIMIT', 10),
-  proMonthlyLimit: num('PRO_MONTHLY_LIMIT', -1),
+  // Included AI uses (grade, review, prompt) per plan. Every plan is capped.
+  // Placeholder numbers until pricing is decided; tune them to your provider costs.
+  freeMonthlyLimit: cap('FREE_MONTHLY_LIMIT', 10),
+  freeDailyLimit: cap('FREE_DAILY_LIMIT', 10),
+  proMonthlyLimit: cap('PRO_MONTHLY_LIMIT', 300),
+  proDailyLimit: cap('PRO_DAILY_LIMIT', 50),
 
   // Basic abuse limits (per server instance, in memory).
   authRateLimitPerMinute: num('AUTH_RATE_LIMIT_PER_MINUTE', 10),
   aiRateLimitPerMinute: num('AI_RATE_LIMIT_PER_MINUTE', 20),
+  // Per client IP across all accounts, so many sign-ups from one place can't multiply the per-user limit.
+  aiIpRateLimitPerMinute: num('AI_IP_RATE_LIMIT_PER_MINUTE', 60),
 };
 
 export const billingEnabled = !!env.stripeSecret && !!env.stripePriceId;

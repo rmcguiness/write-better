@@ -35,7 +35,8 @@ and the web from one Expo codebase.
     Settings and the app calls that provider directly.
   - **Managed account (native, or web with a server).** The [`server/`](server/)
     backend (Hono + SQLite + Stripe) holds the provider keys and handles
-    authentication, metering, monthly quotas, and billing.
+    authentication, metering, monthly and daily usage caps (on every plan,
+    including Pro), and billing.
 - **Journalism headlines.** The Headline button turns a current Hacker News
   front-page story (from the keyless Algolia API) into an investigative
   assignment. If the request fails, the app falls back to an offline prompt.
@@ -64,11 +65,11 @@ Keys are only sent to the provider you pick. Never put a provider key in an
 **Tested (runs in CI on every PR):**
 
 - Lint (`expo lint`) and TypeScript for the app and the server.
-- App unit tests (Vitest, 56 tests): the prompt generator, the provider layer
+- App unit tests (Vitest, 67 tests): the prompt generator, the provider layer
   (SDKs and `fetch` mocked), feedback parsing, BYOK key storage and migration,
-  and demo-mode switching.
-- Server tests (Vitest, 58 tests): auth, password hashing, rate limiting,
-  quota reservation and metering, Stripe webhook signature checks (locally
+  demo-mode switching, and usage/cap messaging.
+- Server tests (Vitest, 70 tests): auth, password hashing, per-account and
+  per-IP rate limiting, monthly and daily cap reservation and metering, Stripe webhook signature checks (locally
   signed fixtures), and provider routing. SQLite runs in memory, and no real
   Stripe or AI calls are made.
 - Web demo end-to-end (Playwright, 5 tests): prompts, sessions, the library,

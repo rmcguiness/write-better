@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import Stripe from 'stripe';
 import { app } from './app.js';
-import { db, createUser, reserveUsage, monthlyUsageCount } from './db.js';
+import { db, createUser, reserveUsage, monthlyUsageCount, setUserPlan } from './db.js';
 import { issueToken } from './auth.js';
 import { grade, review, generatePrompt } from './providers.js';
 vi.mock('./providers.js', () => ({ grade: vi.fn(), review: vi.fn(), generatePrompt: vi.fn() }));
@@ -49,12 +49,39 @@ it('accepts a correctly signed Stripe test event', async () => {
  const signature = Stripe.webhooks.generateTestHeaderString({ payload, secret: 'whsec_fake' });
  expect((await app.request('/billing/webhook', { method: 'POST', headers: { 'stripe-signature': signature }, body: payload })).status).toBe(200);
 });
+const free = { monthly: 2, daily: 2 };
 it.each(['/feedback/grade', '/feedback/review', '/prompts/generate'])('returns quota_exceeded without calling AI: %s', async path => {
  const { user, token } = await userToken();
- reserveUsage(user.id, 'grade', 2); reserveUsage(user.id, 'review', 2);
+ reserveUsage(user.id, 'grade', free); reserveUsage(user.id, 'review', free);
  const res = await post(path, { piece, genre: 'poetry', wordTarget: 100 }, token);
- expect(res.status).toBe(402); expect(await res.json()).toHaveProperty('code', 'quota_exceeded');
+ expect(res.status).toBe(402);
+ expect(await res.json()).toMatchObject({ code: 'quota_exceeded', scope: 'month', plan: 'free', limit: 2, canUpgrade: true });
  expect(grade).not.toHaveBeenCalled(); expect(review).not.toHaveBeenCalled(); expect(generatePrompt).not.toHaveBeenCalled();
+});
+it('caps Pro users too, with a daily limit and no upgrade prompt', async () => {
+ const { user, token } = await userToken();
+ setUserPlan(user.id, 'pro');
+ vi.mocked(grade).mockResolvedValue({ overall: 90 } as Awaited<ReturnType<typeof grade>>);
+ for (let i = 0; i < 3; i++) expect((await post('/feedback/grade', { piece }, token)).status).toBe(200);
+ const res = await post('/feedback/grade', { piece }, token);
+ expect(res.status).toBe(402);
+ const body = await res.json() as { error: string; resetsAt: string };
+ expect(body).toMatchObject({ code: 'quota_exceeded', scope: 'day', plan: 'pro', limit: 3, canUpgrade: false });
+ expect(body.error).toMatch(/today’s limit of 3/);
+ expect(new Date(body.resetsAt).getUTCHours()).toBe(0);
+ expect(grade).toHaveBeenCalledTimes(3);
+ const me = await (await app.request('/me', { headers: { authorization: `Bearer ${token}` } })).json() as { account: { usage: unknown } };
+ expect(me.account.usage).toMatchObject({ used: 3, limit: 5, today: { used: 3, limit: 3 } });
+});
+it('tells Pro users when the monthly cap resets', async () => {
+ vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-01T12:00:00Z'));
+ const { user, token } = await userToken();
+ setUserPlan(user.id, 'pro');
+ for (let i = 0; i < 5; i++) reserveUsage(user.id, 'grade', { monthly: 5, daily: 99 });
+ const res = await post('/feedback/grade', { piece }, token);
+ const body = await res.json() as { error: string };
+ expect(body).toMatchObject({ scope: 'month', plan: 'pro', canUpgrade: false, resetsAt: '2026-11-01T00:00:00.000Z' });
+ expect(body.error).toBe('You’ve reached the Pro plan’s monthly cap of 5 AI uses. It resets on November 1.');
 });
 it.each([
  ['/feedback/grade', { piece: { ...piece, body: 'x'.repeat(50001) } }],
