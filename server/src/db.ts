@@ -73,45 +73,66 @@ export function startOfMonth(): number {
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
 }
 
-/** Start (ms) of next UTC month — when the quota resets. */
+/** Start (ms) of next UTC month — when the monthly cap resets. */
 export function startOfNextMonth(): number {
   const now = new Date();
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
 }
 
-export function monthlyUsageCount(userId: string): number {
+/** Start (ms) of the current UTC day. */
+export function startOfDay(): number {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+}
+
+/** Start (ms) of the next UTC day — when the daily cap resets. */
+export function startOfNextDay(): number {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+}
+
+export type UsageKind = 'grade' | 'review' | 'prompt';
+export type CapScope = 'month' | 'day';
+
+function usageCountSince(userId: string, since: number): number {
   const row = db
     .prepare(
       "SELECT COUNT(*) AS n FROM usage_events WHERE user_id = ? AND kind IN ('grade','review','prompt') AND created_at >= ?",
     )
-    .get(userId, startOfMonth()) as { n: number };
+    .get(userId, since) as { n: number };
   return row.n;
 }
 
-export function recordUsage(
-  userId: string,
-  kind: 'grade' | 'review' | 'prompt',
-  tokensIn = 0,
-  tokensOut = 0,
-): void {
+export function monthlyUsageCount(userId: string): number {
+  return usageCountSince(userId, startOfMonth());
+}
+
+export function dailyUsageCount(userId: string): number {
+  return usageCountSince(userId, startOfDay());
+}
+
+export function recordUsage(userId: string, kind: UsageKind, tokensIn = 0, tokensOut = 0): void {
   db.prepare(
     'INSERT INTO usage_events (id, user_id, kind, tokens_in, tokens_out, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(randomUUID(), userId, kind, tokensIn, tokensOut, Date.now());
 }
 
+export type Reservation = { ok: true; id: string } | { ok: false; scope: CapScope };
+
 /**
- * Atomically check the monthly quota and record a usage event (limit < 0 = unlimited).
- * Returns the event id, or null when the user is over quota. Reserving before the
- * provider call stops parallel requests from overshooting the quota.
+ * Atomically check the monthly and daily caps and record a usage event.
+ * Returns the event id, or which cap was hit (the monthly cap is reported first).
+ * Reserving before the provider call stops parallel requests from overshooting.
  */
 export const reserveUsage = db.transaction(
-  (userId: string, kind: 'grade' | 'review' | 'prompt', limit: number): string | null => {
-    if (limit >= 0 && monthlyUsageCount(userId) >= limit) return null;
+  (userId: string, kind: UsageKind, limits: { monthly: number; daily: number }): Reservation => {
+    if (monthlyUsageCount(userId) >= limits.monthly) return { ok: false, scope: 'month' };
+    if (dailyUsageCount(userId) >= limits.daily) return { ok: false, scope: 'day' };
     const id = randomUUID();
     db.prepare(
       'INSERT INTO usage_events (id, user_id, kind, tokens_in, tokens_out, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     ).run(id, userId, kind, 0, 0, Date.now());
-    return id;
+    return { ok: true, id };
   },
 );
 

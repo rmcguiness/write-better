@@ -32,6 +32,7 @@ import {
   type AppSettings,
 } from '@/lib/storage';
 import { formatClock, timeAgo } from '@/lib/text';
+import { limitAlert, usageSummary } from '@/lib/usage';
 import type { Feedback, Piece, ReviewTurn } from '@/lib/types';
 
 export default function PieceScreen() {
@@ -148,15 +149,21 @@ export default function PieceScreen() {
 
   function notify(e: unknown) {
     const msg = e instanceof Error ? e.message : 'Something went wrong.';
-    const quota = e instanceof ApiError && e.code === 'quota_exceeded';
+    const limit = e instanceof ApiError ? limitAlert(e) : null;
     if (Platform.OS === 'web') {
       // A blocking window.alert() freezes the page; the in-page ErrorState shows the message.
-      if (quota) router.push('/settings');
-    } else if (quota) {
-      Alert.alert('Monthly limit reached', msg, [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Upgrade', onPress: () => router.push('/settings') },
-      ]);
+      if (limit?.canUpgrade) router.push('/settings');
+    } else if (limit) {
+      Alert.alert(
+        limit.title,
+        limit.message,
+        limit.canUpgrade
+          ? [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Upgrade', onPress: () => router.push('/settings') },
+            ]
+          : [{ text: 'OK' }],
+      );
     } else {
       Alert.alert('Heads up', msg);
     }
@@ -420,30 +427,23 @@ function ReviewBubble({ turn }: { turn: ReviewTurn }) {
 
 function UsageLine({ account }: { account: Account }) {
   const theme = useTheme();
-  const unlimited = account.usage.limit < 0;
-  const remaining = unlimited ? Infinity : Math.max(0, account.usage.limit - account.usage.used);
-  const out = !unlimited && remaining === 0;
+  const { capped, label, action } = usageSummary(account);
+  const out = capped !== null;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Manage AI usage"
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label}. ${action} AI usage`}
       onPress={() => router.push('/settings')}
       style={[styles.usageLine, { borderColor: out ? theme.danger : theme.border }]}>
       <Ionicons
-        name={unlimited ? 'infinite' : out ? 'alert-circle' : 'flash-outline'}
+        name={out ? 'alert-circle' : 'flash-outline'}
         size={16}
         color={out ? theme.danger : theme.tint}
       />
       <ThemedText type="small" style={[styles.flex, out && { color: theme.danger }]}>
-        {unlimited
-          ? 'Pro · unlimited this month'
-          : out
-            ? 'No AI uses left this month'
-            : `${remaining} of ${account.usage.limit} AI uses left this month`}
+        {label}
       </ThemedText>
-      {!unlimited && (
-        <ThemedText type="small" style={{ color: theme.tint, fontWeight: '700' }}>
-          {out ? 'Upgrade' : 'Manage'}
-        </ThemedText>
-      )}
+      <ThemedText type="small" style={{ color: theme.tint, fontWeight: '700' }}>
+        {action}
+      </ThemedText>
     </Pressable>
   );
 }

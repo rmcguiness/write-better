@@ -1,5 +1,6 @@
 import { WEB_DEMO } from './demo';
 import type { Feedback, Piece, ReviewTurn } from './types';
+import type { LimitDetails } from './usage';
 
 /**
  * Client for the Write Better managed backend. In managed mode the app never
@@ -14,18 +15,22 @@ export interface Account {
   plan: PlanId;
   usage: {
     used: number;
-    limit: number; // -1 = unlimited
+    limit: number; // monthly cap (older servers may send -1)
     resetsAt: string; // ISO date
+    /** Daily cap; absent on older servers. */
+    today?: { used: number; limit: number; resetsAt: string };
   };
 }
 
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(status: number, message: string, code?: string) {
+  details?: LimitDetails;
+  constructor(status: number, message: string, code?: string, details?: LimitDetails) {
     super(message);
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -81,8 +86,19 @@ async function request<T>(
     const msg = (data as { error?: string })?.error;
     const code = (data as { code?: string })?.code;
     if (res.status === 401) throw new ApiError(401, msg ?? 'Please sign in again.', code ?? 'unauthorized');
-    if (res.status === 402)
-      throw new ApiError(402, msg ?? 'You’ve hit your plan’s monthly limit.', code ?? 'quota_exceeded');
+    if (res.status === 402) {
+      const d = data as LimitDetails | null;
+      throw new ApiError(402, msg ?? 'You’ve reached your plan’s AI limit.', code ?? 'quota_exceeded', {
+        scope: d?.scope,
+        limit: d?.limit,
+        resetsAt: d?.resetsAt,
+        canUpgrade: d?.canUpgrade,
+      });
+    }
+    if (res.status === 429) {
+      const retryAfter = Number((data as LimitDetails | null)?.retryAfter ?? res.headers.get('retry-after')) || undefined;
+      throw new ApiError(429, msg ?? 'Too many requests. Please wait a minute.', code ?? 'rate_limited', { retryAfter });
+    }
     throw new ApiError(res.status, msg ?? `Request failed (${res.status}).`, code);
   }
   return data as T;

@@ -23,6 +23,7 @@ import { defaultModel, getProvider, PROVIDERS, type ProviderId } from '@/lib/pro
 import { getSettings, saveSettings, type AIMode, type AppSettings } from '@/lib/storage';
 
 import { WEB_DEMO } from '@/lib/demo';
+import { formatResetDate, formatResetTime, planAllowance, usageSummary } from '@/lib/usage';
 
 const DEFAULT_BACKEND = process.env.EXPO_PUBLIC_MANAGED_SERVER_URL ?? 'http://localhost:8787';
 
@@ -335,8 +336,9 @@ function AccountPanel({
   onSignOut: () => void;
 }) {
   const theme = useTheme();
-  const unlimited = account.usage.limit < 0;
-  const pct = unlimited ? 0 : Math.min(1, account.usage.used / Math.max(1, account.usage.limit));
+  const { usage } = account;
+  const summary = usageSummary(account);
+  const metered = usage.limit >= 0;
   return (
     <View style={{ gap: Spacing.three }}>
       <View style={styles.acctRow}>
@@ -344,7 +346,7 @@ function AccountPanel({
         <View style={styles.flex}>
           <ThemedText type="smallBold">{account.email}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {account.plan === 'pro' ? 'Pro plan' : 'Free plan'}
+            {account.plan === 'pro' ? 'Pro plan' : 'Free plan'} · {planAllowance(account)}
           </ThemedText>
         </View>
         <View style={[styles.planPill, { backgroundColor: account.plan === 'pro' ? theme.tint : theme.backgroundSelected }]}>
@@ -354,21 +356,35 @@ function AccountPanel({
         </View>
       </View>
 
-      <View>
+      {metered ? (
+        <UsageMeter label="This month" used={usage.used} limit={usage.limit} note={`Resets ${formatResetDate(usage.resetsAt)}`} />
+      ) : (
         <View style={styles.usageRow}>
-          <ThemedText type="small" themeColor="textSecondary">
-            This month
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {unlimited ? `${account.usage.used} used` : `${account.usage.used} / ${account.usage.limit}`}
+          <ThemedText type="small" themeColor="textSecondary">This month</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">{usage.used} used</ThemedText>
+        </View>
+      )}
+      {metered && usage.today && usage.today.limit < usage.limit && (
+        <UsageMeter
+          label="Today"
+          used={usage.today.used}
+          limit={usage.today.limit}
+          note={`Resets ${formatResetTime(usage.today.resetsAt)}`}
+        />
+      )}
+
+      {summary.capped && (
+        <View accessibilityRole="alert" style={[styles.capNotice, { borderColor: theme.danger }]}>
+          <Ionicons name="alert-circle" size={18} color={theme.danger} />
+          <ThemedText type="small" style={[styles.flex, { color: theme.danger }]}>
+            {summary.capped === 'day'
+              ? `You’ve used today’s ${usage.today?.limit} AI uses. ${summary.resetText}.`
+              : account.plan === 'pro'
+                ? `You’ve reached this month’s cap of ${usage.limit} AI uses. ${summary.resetText}.`
+                : `You’ve used all ${usage.limit} AI uses included with Free this month. Upgrade for more, or wait for the reset (${formatResetDate(usage.resetsAt)}).`}
           </ThemedText>
         </View>
-        {!unlimited && (
-          <View style={[styles.usageTrack, { backgroundColor: theme.backgroundSelected }]}>
-            <View style={[styles.usageFill, { width: `${pct * 100}%`, backgroundColor: pct >= 1 ? theme.danger : theme.tint }]} />
-          </View>
-        )}
-      </View>
+      )}
 
       {!!error && (
         <ThemedText type="small" style={{ color: theme.danger }}>
@@ -382,6 +398,30 @@ function AccountPanel({
         <Button title="Upgrade to Pro" loading={busy} onPress={onUpgrade} icon={<Ionicons name="rocket" size={18} color={theme.tintText} />} />
       )}
       <Button title="Sign out" variant="ghost" onPress={onSignOut} />
+    </View>
+  );
+}
+
+function UsageMeter({ label, used, limit, note }: { label: string; used: number; limit: number; note: string }) {
+  const theme = useTheme();
+  const pct = Math.min(1, used / Math.max(1, limit));
+  const full = used >= limit;
+  return (
+    <View accessible accessibilityLabel={`${label}: ${used} of ${limit} AI uses. ${note}.`}>
+      <View style={styles.usageRow}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {label}
+        </ThemedText>
+        <ThemedText type="small" style={{ color: full ? theme.danger : theme.textSecondary }}>
+          {used} / {limit}
+        </ThemedText>
+      </View>
+      <View style={[styles.usageTrack, { backgroundColor: theme.backgroundSelected }]}>
+        <View style={[styles.usageFill, { width: `${pct * 100}%`, backgroundColor: full ? theme.danger : theme.tint }]} />
+      </View>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.usageNote}>
+        {note}
+      </ThemedText>
     </View>
   );
 }
@@ -451,5 +491,7 @@ const styles = StyleSheet.create({
   usageRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   usageTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
   usageFill: { height: '100%', borderRadius: 3 },
+  usageNote: { marginTop: 4 },
+  capNotice: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, borderWidth: 1, borderRadius: 12, padding: Spacing.two },
   footer: { textAlign: 'center', marginTop: Spacing.three },
 });

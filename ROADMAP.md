@@ -27,6 +27,19 @@ near the top come first.
 - [ ] **Export and import pieces.** Add JSON or Markdown export so writing isn't
       trapped in local storage.
 
+## Pro plan (groundwork done, launch not started)
+
+- [x] Every plan is capped: monthly and daily AI-use caps enforced on the server,
+      plus per-account and per-IP burst limits on AI routes. The app shows a clear
+      "cap reached" state and when it resets. No "unlimited" copy anywhere.
+- [ ] **Decide the numbers.** Set the Pro price and caps from real per-request
+      provider costs. The defaults (Free 10/month, Pro 300/month and 50/day) are
+      placeholders.
+- [ ] **Stripe test-mode run.** Check out with a test card, confirm the webhook
+      moves the account to Pro, and check that the caps update. No live keys
+      until then.
+- [ ] **Pricing copy** in the app and README once the numbers are settled.
+
 ## Later
 
 - [ ] **Host the web demo** on a free static host (see the README), if wanted.
