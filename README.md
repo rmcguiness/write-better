@@ -122,14 +122,16 @@ node scripts/serve-web.mjs                    # preview at http://127.0.0.1:4173
 npm run e2e                                   # Playwright against dist/
 ```
 
-### Hosting it for free (not deployed)
+### Hosting it for free
 
-`dist/` is a plain static site, so any free static host will serve it. Nothing
-is deployed today. If you want a public demo:
+`dist/` is a plain static site, so any free static host will serve it. There is
+no public demo today. A private Vercel project builds the BYOK demo for every
+pull request (behind Vercel's deployment protection) using `vercel.json`:
 
-- **Vercel:** import the repo, set the build command to
-  `EXPO_PUBLIC_WEB_DEMO=true npx expo export --platform web` and the output
-  directory to `dist`. Don't set any provider keys.
+- **Vercel:** `vercel.json` sets the build command
+  (`EXPO_PUBLIC_WEB_DEMO=true npx expo export --platform web`), the output
+  directory `dist`, clean URLs and the deep-link rewrites. Don't set any
+  provider keys.
 - **Cloudflare Pages:** use the same build command and output directory `dist`.
 
 Deep links (`/piece/<id>`, `/learn/<id>`) need a fallback to the matching
