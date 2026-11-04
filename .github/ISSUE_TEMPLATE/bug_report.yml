@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in Write Better is broken.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For security problems, please use private vulnerability reporting instead (see SECURITY.md). Never paste an API key into an issue.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - Web
+        - iOS
+        - Android
+        - Managed server (server/)
+    validations:
+      required: true
+  - type: dropdown
+    id: ai
+    attributes:
+      label: AI setup
+      options:
+        - No key (AI features off)
+        - Bring your own key (Anthropic)
+        - Bring your own key (OpenAI)
+        - Bring your own key (xAI)
+        - Managed account
+        - Not AI related
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Write tab
+        2. Start a session with ...
+        3. ...
+  - type: input
+    id: env
+    attributes:
+      label: Version details
+      placeholder: Safari 18 on iOS 18, main @ abc1234
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or logs
+      description: Use sample text only. Remove keys and tokens from logs.

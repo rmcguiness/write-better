@@ -94,8 +94,10 @@ See [TESTING.md](./TESTING.md) for details.
 
 ## Run it
 
+Requires Node.js 22.
+
 ```bash
-npm install
+npm ci
 npm run web      # browser (dev server)
 npm run ios      # iOS simulator (needs Xcode)
 npm run android  # Android emulator
@@ -105,10 +107,10 @@ Checks:
 
 ```bash
 npm run lint && npx tsc --noEmit && npm test
-cd server && npm install && npm run typecheck && npm test
+cd server && npm ci && npm run typecheck && npm test
 ```
 
-Managed backend: `cd server && npm install && npm run dev`. See
+Managed backend: `cd server && npm ci && npm run dev`. See
 [server/README.md](./server/README.md) and `server/.env.example`.
 
 ## Static web demo (BYOK only)
@@ -158,6 +160,11 @@ docs/screenshots/      README images (WebP)
 ## Roadmap
 
 See [ROADMAP.md](./ROADMAP.md).
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md)
+for setup and the checks to run, and the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Security
 
